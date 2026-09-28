@@ -132,8 +132,9 @@ def build_where(f):
     if f.get("opp_id"):
         mode = f.get("opp_mode", "table")
         extra = " AND v.vpip = 1" if mode == "vpip" else " AND v.cards IS NOT NULL" if mode == "shown" else ""
-        clauses.append("AND EXISTS (SELECT 1 FROM hand_players v WHERE v.hand_id = hp.hand_id AND v.name = ?" + extra + ")")
-        params.append(f["opp_id"].strip())
+        # 可填匿名 ID 或遊戲名字（別名）；同名字的所有 ID 一起算
+        clauses.append("AND EXISTS (SELECT 1 FROM hand_players v WHERE v.hand_id = hp.hand_id AND (v.name = ? OR v.name IN (SELECT name FROM player_notes WHERE alias = ?))" + extra + ")")
+        params.append(f["opp_id"].strip()); params.append(f["opp_id"].strip())
     if f.get("hid"):
         # 牌局編號搜尋：可只打後幾碼，大小寫不分
         q = f["hid"].strip().upper().replace("#", "")
@@ -444,12 +445,22 @@ def hand_detail(con, hand_id):
         q = ",".join("?" * len(names))
         for r in con.execute(f"SELECT name, alias, note FROM player_notes WHERE name IN ({q})", names):
             aliases[r["name"]] = {"alias": r["alias"], "note": r["note"]}
-        for r in con.execute(
-            f"""SELECT name, COUNT(*) AS hands, SUM(vpip) AS v, SUM(pfr) AS p, SUM(three_bet) AS tb, SUM(three_bet_opp) AS tbo,
-                       SUM(fold_to_cbet) AS fc, SUM(faced_cbet) AS fco, SUM(cbet) AS cb, SUM(cbet_opp) AS cbo
-                FROM hand_players WHERE name IN ({q}) GROUP BY name""", names):
-            hud[r["name"]] = {"hands": r["hands"], "vpip": pct(r["v"], r["hands"]), "pfr": pct(r["p"], r["hands"]),
-                              "threebet": pct(r["tb"], r["tbo"]), "fold_to_cbet": pct(r["fc"], r["fco"]), "cbet": pct(r["cb"], r["cbo"])}
+        # HUD：有填遊戲名字的玩家，把同名字的所有 ID 合併計算
+        for nm in names:
+            al = (aliases.get(nm) or {}).get("alias") or ""
+            if al:
+                r = con.execute(
+                    """SELECT COUNT(*) AS hands, SUM(vpip) AS v, SUM(pfr) AS p, SUM(three_bet) AS tb, SUM(three_bet_opp) AS tbo,
+                              SUM(fold_to_cbet) AS fc, SUM(faced_cbet) AS fco, SUM(cbet) AS cb, SUM(cbet_opp) AS cbo,
+                              COUNT(DISTINCT name) AS n_ids
+                       FROM hand_players WHERE name IN (SELECT name FROM player_notes WHERE alias = ?)""", (al,)).fetchone()
+            else:
+                r = con.execute(
+                    """SELECT COUNT(*) AS hands, SUM(vpip) AS v, SUM(pfr) AS p, SUM(three_bet) AS tb, SUM(three_bet_opp) AS tbo,
+                              SUM(fold_to_cbet) AS fc, SUM(faced_cbet) AS fco, SUM(cbet) AS cb, SUM(cbet_opp) AS cbo, 1 AS n_ids
+                       FROM hand_players WHERE name = ?""", (nm,)).fetchone()
+            hud[nm] = {"hands": r["hands"], "vpip": pct(r["v"], r["hands"]), "pfr": pct(r["p"], r["hands"]),
+                       "threebet": pct(r["tb"], r["tbo"]), "fold_to_cbet": pct(r["fc"], r["fco"]), "cbet": pct(r["cb"], r["cbo"]), "n_ids": r["n_ids"]}
     # session hands around this one (gap <= 30 min), for the sidebar
     from datetime import datetime, timedelta
     t0 = datetime.strptime(h["played_at"], "%Y-%m-%d %H:%M:%S")
@@ -592,10 +603,13 @@ def opponents(con, min_hands=30, filters=None, name_like=""):
     w, p = build_where(f)
     nl = ""
     if name_like:
-        nl = " AND hp.name LIKE ?"
-        p = p + ["%" + name_like.strip() + "%"]
+        nl = " AND (hp.name LIKE ? OR pn.alias LIKE ?)"
+        p = p + ["%" + name_like.strip() + "%"] * 2
+    # 填了相同遊戲名字（alias）的 ID 合併成一列，數據用合併後的手牌重算
     rows = con.execute(
-        f"""SELECT hp.name, COUNT(*) AS hands, ROUND(SUM(hp.net),2) AS net,
+        f"""SELECT COALESCE(NULLIF(pn.alias,''), hp.name) AS name,
+               GROUP_CONCAT(DISTINCT hp.name) AS ids, COUNT(DISTINCT hp.name) AS n_ids,
+               COUNT(*) AS hands, ROUND(SUM(hp.net),2) AS net,
                ROUND(AVG(hp.stack / h.bb)) AS stack_bb,
                SUM(hp.vpip) AS vpip_n, SUM(hp.pfr) AS pfr_n,
                SUM(hp.three_bet) AS tb_n, SUM(hp.three_bet_opp) AS tb_opp,
@@ -609,11 +623,11 @@ def opponents(con, min_hands=30, filters=None, name_like=""):
                SUM(hp.agg_bets+hp.agg_raises) AS agg, SUM(hp.agg_calls) AS calls,
                SUM(CASE WHEN hp.cards IS NOT NULL THEN 1 ELSE 0 END) AS shown,
                MIN(h.played_at) AS first_seen, MAX(h.played_at) AS last_seen,
-               (SELECT alias FROM player_notes pn WHERE pn.name=hp.name) AS alias,
-               (SELECT note FROM player_notes pn WHERE pn.name=hp.name) AS pnote
+               MAX(pn.alias) AS alias, MAX(pn.note) AS pnote
             FROM hand_players hp JOIN hands h ON h.hand_id=hp.hand_id
+            LEFT JOIN player_notes pn ON pn.name = hp.name
             WHERE hp.name != 'Hero' {w} {nl}
-            GROUP BY hp.name HAVING COUNT(*) >= ? ORDER BY hands DESC LIMIT 300""",
+            GROUP BY COALESCE(NULLIF(pn.alias,''), hp.name) HAVING COUNT(*) >= ? ORDER BY hands DESC LIMIT 300""",
         p + [min_hands],
     ).fetchall()
     out = []
@@ -630,6 +644,7 @@ def opponents(con, min_hands=30, filters=None, name_like=""):
         d["wtsd"] = pct(d["wtsd_n"], d["sf"])
         d["wsd"] = pct(d["wsd_n"], d["wtsd_n"])
         d["af"] = round(d["agg"] / d["calls"], 2) if d["calls"] else None
+        d["ids"] = (d["ids"] or "").split(",")
         out.append(d)
     return out
 
