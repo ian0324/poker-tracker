@@ -134,6 +134,11 @@ def build_where(f):
         extra = " AND v.vpip = 1" if mode == "vpip" else " AND v.cards IS NOT NULL" if mode == "shown" else ""
         clauses.append("AND EXISTS (SELECT 1 FROM hand_players v WHERE v.hand_id = hp.hand_id AND v.name = ?" + extra + ")")
         params.append(f["opp_id"].strip())
+    if f.get("hid"):
+        # 牌局編號搜尋：可只打後幾碼，大小寫不分
+        q = f["hid"].strip().upper().replace("#", "")
+        clauses.append("AND UPPER(hp.hand_id) LIKE ?")
+        params.append("%" + q + "%")
     if f.get("pf_resp") in ("fold", "call", "4bet"):
         act = {"fold": "folds", "call": "calls", "4bet": "raises"}[f["pf_resp"]]
         clauses.append("AND " + HERO_RESP_SQL + " = ?")

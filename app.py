@@ -21,7 +21,7 @@ _lock = threading.Lock()
 
 def filters_from(qs):
     f = {}
-    for k in ("date_from", "date_to", "position", "hand169", "pot_type", "pf_role", "pf_first", "ip", "players", "saw_flop", "flop_strength", "flop_line", "turn_line", "river_line", "preset", "first_in", "vs3b_pos", "vs_open_pos", "vs4b_pos", "pf_resp", "opp_id", "opp_mode"):
+    for k in ("date_from", "date_to", "position", "hand169", "pot_type", "pf_role", "pf_first", "ip", "players", "saw_flop", "flop_strength", "flop_line", "turn_line", "river_line", "preset", "first_in", "vs3b_pos", "vs_open_pos", "vs4b_pos", "pf_resp", "opp_id", "opp_mode", "hid"):
         v = qs.get(k, [""])[0].strip()
         if v:
             f[k] = v

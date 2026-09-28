@@ -170,6 +170,7 @@
     <select id="f_tl"><option value="">轉牌動作線</option><option value="check-call">check-call</option><option value="check-raise">check-raise</option><option value="check-fold">check-fold</option><option value="check">check（無人下注）</option><option value="bet">bet</option><option value="bet-call">bet-call</option><option value="bet-fold">bet-fold</option><option value="bet-raise">bet-raise</option><option value="call">call</option><option value="raise">raise</option><option value="fold">fold</option></select>
     <select id="f_rl"><option value="">河牌動作線</option><option value="check-call">check-call</option><option value="check-raise">check-raise</option><option value="check-fold">check-fold</option><option value="check">check（無人下注）</option><option value="bet">bet</option><option value="bet-call">bet-call</option><option value="bet-fold">bet-fold</option><option value="bet-raise">bet-raise</option><option value="call">call</option><option value="raise">raise</option><option value="fold">fold</option></select>
     <input id="f_opp" placeholder="玩家 ID" size="9" title="輸入對手的匿名 ID（對手分頁可點）"><select id="f_oppmode" title="該玩家在這些手牌裡的條件"><option value="table">同桌</option><option value="vpip">有入池</option><option value="shown">有亮牌</option></select>
+    <input id="f_hid" placeholder="🔍 牌局編號" size="13" title="輸入牌局編號（可只打後幾碼），Enter 搜尋；只有一手時直接開回放">
     <button class="ghost" onclick="clearFilters()">清除</button>
   </div>
 </header>
@@ -360,9 +361,12 @@ document.addEventListener('click',e=>{const th=e.target.closest('th');if(!th)ret
 // ---------- nav ----------
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.p);load(b.dataset.p)});
 document.querySelectorAll('.filters select,.filters input[type=date],#f_opp').forEach(el=>el.addEventListener('change',()=>{PRESET='';EXTRA={};applyFilters()}));
+$('#f_hid').addEventListener('change',()=>{searchHand($('#f_hid').value)});
+$('#f_hid').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchHand($('#f_hid').value)}});
+function searchHand(v){v=v.trim();$('#f_hid').value=v;PRESET='';EXTRA={};CUSTOM_FILTER=null;if(v){$('#f_hand').dataset.v='';['f_from','f_to','f_pos','f_hand','f_pot','f_role','f_ip','f_players','f_first','f_fs','f_fl','f_tl','f_rl','f_opp'].forEach(i=>$('#'+i).value='');showPage('list')}applyFilters()}
 const PAGE_NAMES={overview:'總覽',positions:'位置',hands169:'起手牌',range:'翻前範圍',preflop:'翻前策略',strength:'牌力',leaks:'漏洞檢查',list:'手牌列表',sessions:'場次',marked:'標記',opps:'對手',import:'匯入'};
 let BACK=null,LAST_SNAP=null;
-const FILTER_IDS=['f_from','f_to','f_pos','f_hand','f_pot','f_role','f_ip','f_players','f_first','f_fs','f_fl','f_tl','f_rl','f_opp','f_oppmode'];
+const FILTER_IDS=['f_from','f_to','f_pos','f_hand','f_pot','f_role','f_ip','f_players','f_first','f_fs','f_fl','f_tl','f_rl','f_opp','f_oppmode','f_hid'];
 function snapFilters(){const o={};FILTER_IDS.forEach(i=>o[i]=$('#'+i).value);o._hv=$('#f_hand').dataset.v||'';o._preset=PRESET;o._extra={...EXTRA};return o}
 function restoreFilters(o){FILTER_IDS.forEach(i=>$('#'+i).value=o[i]);$('#f_hand').dataset.v=o._hv;PRESET=o._preset;EXTRA={...o._extra}}
 function showPage(p){const cur=document.querySelector('nav button.on');const curp=cur?cur.dataset.p:'';
@@ -388,15 +392,16 @@ function applyFilters(){
   if($('#f_tl').value)F.turn_line=$('#f_tl').value;
   if($('#f_rl').value)F.river_line=$('#f_rl').value;
   if($('#f_opp').value.trim()){F.opp_id=$('#f_opp').value.trim();F.opp_mode=$('#f_oppmode').value}
+  if($('#f_hid').value.trim())F.hid=$('#f_hid').value.trim();
   if(PRESET)F.preset=PRESET;
   Object.assign(F,EXTRA);
-  const tags=[];if(F.pot_type)tags.push(F.pot_type);if(F.pf_role)tags.push('as '+F.pf_role);if(F.ip!=null)tags.push(F.ip==='1'?'IP':'OOP');if(F.players)tags.push(F.players==='hu'?'HU':'多人');if(F.pf_first)tags.push(F.pf_first);if(F.position)tags.push(F.position);if(F.hand169)tags.push(F.hand169.split(',').length<=4?F.hand169.replace(/,/g,' '):F.hand169.split(',').length+' 種起手牌');if(F.flop_strength)tags.push('翻牌:'+$('#f_fs').selectedOptions[0].text);if(F.flop_line)tags.push('翻牌 '+F.flop_line);if(F.turn_line)tags.push('轉牌 '+F.turn_line);if(F.river_line)tags.push('河牌 '+F.river_line);if(F.preset)tags.push('預設:'+(PRESET_TITLES[F.preset]||F.preset));if(F.first_in)tags.push('首入位');if(F.vs3b_pos)tags.push('開池被 '+F.vs3b_pos+' 3-bet');if(F.vs_open_pos)tags.push('面對 '+F.vs_open_pos+' 開池');if(F.vs4b_pos)tags.push('3-bet 後被 '+F.vs4b_pos+' 4-bet');if(F.opp_id)tags.push('玩家 '+F.opp_id+'（'+{table:'同桌',vpip:'有入池',shown:'有亮牌'}[F.opp_mode]+'）');if(F.pf_resp)tags.push({fold:'棄牌',call:'跟注','4bet':'4-bet'}[F.pf_resp]);
+  const tags=[];if(F.pot_type)tags.push(F.pot_type);if(F.pf_role)tags.push('as '+F.pf_role);if(F.ip!=null)tags.push(F.ip==='1'?'IP':'OOP');if(F.players)tags.push(F.players==='hu'?'HU':'多人');if(F.pf_first)tags.push(F.pf_first);if(F.position)tags.push(F.position);if(F.hand169)tags.push(F.hand169.split(',').length<=4?F.hand169.replace(/,/g,' '):F.hand169.split(',').length+' 種起手牌');if(F.flop_strength)tags.push('翻牌:'+$('#f_fs').selectedOptions[0].text);if(F.flop_line)tags.push('翻牌 '+F.flop_line);if(F.turn_line)tags.push('轉牌 '+F.turn_line);if(F.river_line)tags.push('河牌 '+F.river_line);if(F.preset)tags.push('預設:'+(PRESET_TITLES[F.preset]||F.preset));if(F.first_in)tags.push('首入位');if(F.vs3b_pos)tags.push('開池被 '+F.vs3b_pos+' 3-bet');if(F.vs_open_pos)tags.push('面對 '+F.vs_open_pos+' 開池');if(F.vs4b_pos)tags.push('3-bet 後被 '+F.vs4b_pos+' 4-bet');if(F.opp_id)tags.push('玩家 '+F.opp_id+'（'+{table:'同桌',vpip:'有入池',shown:'有亮牌'}[F.opp_mode]+'）');if(F.pf_resp)tags.push({fold:'棄牌',call:'跟注','4bet':'4-bet'}[F.pf_resp]);if(F.hid)tags.push('編號含 '+F.hid);
   $('#scen').textContent=tags.length?'情境：'+tags.join(' · '):'';
   page=0;load(curPage());
   if(curPage()!=='list')LAST_SNAP=snapFilters();
 }
 let PRESET='';const PRESET_TITLES={};let EXTRA={};
-function clearFilters(){PRESET='';EXTRA={};$('#f_hand').dataset.v='';['f_from','f_to','f_pos','f_hand','f_pot','f_role','f_ip','f_players','f_first','f_fs','f_fl','f_tl','f_rl','f_opp'].forEach(i=>$('#'+i).value='');$('#f_oppmode').value='table';applyFilters()}
+function clearFilters(){PRESET='';EXTRA={};$('#f_hand').dataset.v='';['f_from','f_to','f_pos','f_hand','f_pot','f_role','f_ip','f_players','f_first','f_fs','f_fl','f_tl','f_rl','f_opp','f_hid'].forEach(i=>$('#'+i).value='');$('#f_oppmode').value='table';applyFilters()}
 
 async function load(p){
   if(p==='overview')return loadOverview();
@@ -780,6 +785,8 @@ async function loadList(){
   const d=await api('hands',`&sort=${sort}&desc=${desc?1:0}&limit=${PAGE}&offset=${page*PAGE}`);
   if(seq!==LIST_SEQ)return;
   $('#listcount').textContent=`共 ${d.total} 手`;LIST_ROWS=d.rows;
+  if(F.hid&&d.total===1&&d.rows.length===1&&CUR_HAND!==d.rows[0].hand_id)openHand(d.rows[0].hand_id);
+  if(F.hid&&d.total===0)$('#listcount').textContent='找不到編號含「'+F.hid+'」的牌局';
   $('#pageinfo').textContent=`第 ${page+1} / ${Math.max(1,Math.ceil(d.total/PAGE))} 頁`;
   const arrow=k=>sort===k?(desc?' ▼':' ▲'):'';
   const sn={preflop:'翻前',flop:'翻牌',turn:'轉牌',river:'河牌'};
