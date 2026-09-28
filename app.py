@@ -117,7 +117,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/preflop_charts":
             return self._json(stats.preflop_charts())
         if path == "/api/opponents":
-            mh = int(qs.get("min_hands", ["30"])[0])
+            mh = int(qs.get("min_hands", ["1"])[0])
             return self._json(stats.opponents(con, mh, f, qs.get("q", [""])[0]))
         return self._json({"error": "unknown api"}, 404)
 

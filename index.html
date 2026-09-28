@@ -283,7 +283,7 @@
   </section>
 
   <section class="page" id="p-opps">
-    <div class="card"><h2>對手（至少 <input id="minh" value="30" size="3" style="width:50px" onchange="loadOpps()"> 手　搜尋 ID <input id="oppq" placeholder="輸入部分 ID" size="10" onchange="loadOpps()"> <button onclick="loadOpps()" class="ghost" style="padding:2px 8px">更新</button>　<span class="muted">點 ID → 複製；點該列其他地方 → 他有入池的手牌；點「亮牌」數字 → 他亮過牌的手</span>）</h2>
+    <div class="card"><h2>對手（至少 <input id="minh" value="1" size="3" style="width:50px" onchange="loadOpps()"> 手　搜尋 ID <input id="oppq" placeholder="輸入部分 ID" size="10" onchange="loadOpps()"> <button onclick="loadOpps()" class="ghost" style="padding:2px 8px">更新</button>　<span class="muted">點 ID → 複製；點該列其他地方 → 他有入池的手牌；點「亮牌」數字 → 他亮過牌的手</span>）<span id="oppcount" class="muted" style="font-weight:400;font-size:12px"></span></h2>
       <div style="overflow:auto;max-height:78vh"><table id="oppstable"></table></div></div>
   </section>
 
@@ -980,7 +980,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 
 // ---------- opponents ----------
 async function loadOpps(){
-  const rows=await api('opponents','&min_hands='+($('#minh').value||30)+'&q='+encodeURIComponent($('#oppq').value||''));
+  const rows=await api('opponents','&min_hands='+($('#minh').value||1)+'&q='+encodeURIComponent($('#oppq').value||''));
+  $('#oppcount').textContent='　顯示 '+rows.length+' 位'+(rows.length>=3000?'（只列手數最多的 3000 位，其他請用搜尋）':'');
   $('#oppstable').innerHTML='<tr><th>玩家 ID</th><th>遊戲名字／備註</th><th>手數</th><th>籌碼 bb</th><th>淨利</th><th>VPIP</th><th>PFR</th><th>3-Bet</th><th>F3B</th><th>偷盲</th><th>BB 棄</th><th>C-Bet</th><th>F C-Bet</th><th>WTSD</th><th>W$SD</th><th>AF</th><th>亮牌</th><th>最近出現</th></tr>'+
     rows.map(r=>{const merged=r.ids.length>1;const idcell=merged?`<span style="color:var(--gold)"><b>${r.name}</b></span><div style="font-size:11px;line-height:1.5">${r.ids.map(i=>`<span class="muted" style="cursor:copy" title="點一下複製 ID" onclick="event.stopPropagation();copyText('${i}',this)">${i}</span>`).join('<br>')}</div>`:`<span title="點一下複製 ID" style="cursor:copy" onclick="event.stopPropagation();copyText('${r.ids[0]}',this)"><b>${r.ids[0]}</b></span>`;const ids=JSON.stringify(r.ids).replace(/"/g,'&quot;');
       return `<tr class="row" onclick="oppHands('${r.name}','vpip')"><td>${idcell}${merged?`<div class="muted" style="font-size:11px">${r.ids.length} 個 ID 合併</div>`:''}</td><td onclick="event.stopPropagation()"><input class="alias" value="${(r.alias||'').replace(/"/g,'&quot;')}" placeholder="名字" title="輸入 GG 顯示名稱；相同名字的 ID 會合併成一列，離開欄位自動儲存" onchange="savePlayers(${ids},{alias:this.value})"><input class="alias" style="width:150px" value="${(r.pnote||'').replace(/"/g,'&quot;')}" placeholder="備註" onchange="savePlayers(${ids},{note:this.value})"></td><td>${r.hands}</td><td>${r.stack_bb??'–'}</td><td>${money(r.net)}</td><td>${pc(r.vpip)}</td><td>${pc(r.pfr)}</td><td title="${r.tb_n}/${r.tb_opp}">${pc(r.threebet)}</td><td title="${r.f3b_n}/${r.f3b_opp}">${pc(r.fold_to_3bet)}</td><td title="${r.st_n}/${r.st_opp}">${pc(r.steal)}</td><td title="${r.bbf_n}/${r.bbf_opp}">${pc(r.bb_fold)}</td><td title="${r.cb_n}/${r.cb_opp}">${pc(r.cbet)}</td><td title="${r.fcb_n}/${r.fcb_opp}">${pc(r.fold_to_cbet)}</td><td>${pc(r.wtsd)}</td><td>${pc(r.wsd)}</td><td>${fmt(r.af)}</td><td><a href="#" style="color:var(--gold)" onclick="event.stopPropagation();oppHands('${r.name}','shown');return false">${r.shown}</a></td><td class="muted">${(r.last_seen||'').slice(5,16)}</td></tr>`}).join('');

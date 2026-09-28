@@ -598,7 +598,7 @@ def hand_strength_report(con, player="Hero", filters=None):
     return out
 
 
-def opponents(con, min_hands=30, filters=None, name_like=""):
+def opponents(con, min_hands=1, filters=None, name_like=""):
     f = {k: v for k, v in (filters or {}).items() if k not in ("opp_id", "opp_mode")}
     w, p = build_where(f)
     nl = ""
@@ -627,7 +627,7 @@ def opponents(con, min_hands=30, filters=None, name_like=""):
             FROM hand_players hp JOIN hands h ON h.hand_id=hp.hand_id
             LEFT JOIN player_notes pn ON pn.name = hp.name
             WHERE hp.name != 'Hero' {w} {nl}
-            GROUP BY COALESCE(NULLIF(pn.alias,''), hp.name) HAVING COUNT(*) >= ? ORDER BY hands DESC LIMIT 300""",
+            GROUP BY COALESCE(NULLIF(pn.alias,''), hp.name) HAVING COUNT(*) >= ? ORDER BY hands DESC LIMIT 3000""",
         p + [min_hands],
     ).fetchall()
     out = []
