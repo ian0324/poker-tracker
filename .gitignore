@@ -1,0 +1,11 @@
+tracker.db
+tracker.db.bak*
+*.db
+hands/
+build/
+dist/
+__pycache__/
+*.pyc
+*.exe
+*.spec
+_new_*

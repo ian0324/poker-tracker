@@ -1,0 +1,1007 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poker Tracker</title>
+<style>
+  :root{
+    --bg:#111418; --panel:#1a1f26; --panel2:#222831; --line:#2e3640; --text:#e6e9ee; --muted:#8b95a3;
+    --pos:#3fbf7f; --neg:#e5534b; --acc:#4c8dff; --gold:#e0b04a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,"Segoe UI","Noto Sans TC","Microsoft JhengHei",sans-serif}
+  header{display:flex;align-items:center;gap:18px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+  header h1{font-size:17px;margin:0 12px 0 0;letter-spacing:.5px}
+  nav button{background:none;border:none;color:var(--muted);padding:8px 12px;font-size:14px;cursor:pointer;border-bottom:2px solid transparent}
+  nav button.on{color:var(--text);border-bottom-color:var(--acc)}
+  .filters{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .filters input,.filters select,.filters button,.imp input,.imp button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px}
+  .filters button,.imp button{cursor:pointer;background:var(--acc);border-color:var(--acc)}
+  .filters button.ghost{background:none;border-color:var(--line);color:var(--muted)}
+  main{padding:18px;max-width:1500px;margin:0 auto}
+  .page{display:none}.page.on{display:block}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .tile .k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  .tile .v{font-size:22px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+  .tile .s{color:var(--muted);font-size:12px;margin-top:2px}
+  .pos{color:var(--pos)}.neg{color:var(--neg)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:16px}
+  .card h2{font-size:15px;margin:0 0 10px;color:var(--muted);font-weight:600}
+  canvas{width:100%;height:340px;display:block}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted);font-weight:600;font-size:12px;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--panel)}
+  th:hover{color:var(--text)}th.sorted{color:var(--acc)}
+  tr.row{cursor:pointer}tr.row:hover{background:var(--panel2)}
+  .grid169{display:grid;grid-template-columns:repeat(13,1fr);gap:3px;max-width:900px}
+  .cell{aspect-ratio:1;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;cursor:pointer;background:var(--panel2);border:1px solid var(--line)}
+  .cell b{font-size:13px}.cell small{font-size:10px;opacity:.8}
+  .cell.empty{opacity:.35;cursor:default}
+  .cell.sel{background:var(--acc)!important;border-color:#fff;color:#fff}
+  #pkgrid .cell{aspect-ratio:1.45;font-size:12px}
+  #pfgrid .cell{aspect-ratio:1.15}
+  #peekgrid .cell{aspect-ratio:1;font-size:10px;cursor:default}#peekgrid .cell b{font-size:10px}
+  .cell.a-open{background:#2f5fb0}.cell.a-fold{background:#1c2128;color:#7f8894}.cell.a-4bet,.cell.a-3bet,.cell.a-5bet{background:#a83a33}.cell.a-call{background:#2f7d55}.cell.a-na{background:#15181d;color:#4a525c;border-color:#1c2128}
+  .cell.dev{outline:2px solid #ffb020;outline-offset:-2px}
+  .cell.hit{outline:3px solid #fff;outline-offset:-3px;box-shadow:0 0 0 3px #ffb020}
+  .pftab{display:flex;gap:6px;margin-bottom:10px}.pftab button{padding:6px 14px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);border-radius:6px;cursor:pointer}.pftab button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .qcard{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:18px;text-align:center}
+  .qcard .big{font-size:20px;margin:8px 0}.qcard .cardz{font-size:34px;margin:0 4px}
+  .qbtn{padding:10px 26px;font-size:15px;border-radius:8px;border:1px solid var(--line);cursor:pointer;color:#fff;margin:4px}
+  .qbtn.open{background:#2f5fb0}.qbtn.fold{background:#3b4450}.qbtn.b4,.qbtn.b3{background:#a83a33}.qbtn.call{background:#2f7d55}
+  .qres{margin-top:12px;font-size:15px;min-height:60px}.qres.ok{color:var(--pos)}.qres.bad{color:var(--neg)}
+  .qcard{padding:10px}
+  .qt{position:relative;width:100%;max-width:760px;aspect-ratio:1.75;margin:0 auto}
+  .qt .felt{position:absolute;left:10%;right:10%;top:12%;bottom:14%;border-radius:50%;background:radial-gradient(ellipse at center,#2c6f48 0%,#1f5034 70%,#183f2a 100%);border:9px solid #3b2a1c;box-shadow:0 0 0 3px #1a1410,inset 0 0 40px rgba(0,0,0,.35)}
+  .qt .seat{position:absolute;transform:translate(-50%,-50%);text-align:center;min-width:96px;z-index:2}
+  .qt .seat .nm{display:inline-block;background:#1a1f26;border:1px solid var(--line);border-radius:8px;padding:3px 10px;font-size:13px;font-weight:600}
+  .qt .seat.hero .nm{border-color:var(--gold);color:var(--gold)}
+  .qt .act{display:inline-block;margin-top:4px;font-size:12px;padding:2px 8px;border-radius:10px;background:#2a2f36;color:#8b95a3}
+  .qt .act.raise{background:#a83a33;color:#fff}.qt .act.call{background:#2f7d55;color:#fff}.qt .act.wait{background:var(--gold);color:#111;font-weight:700}.qt .act.blind{background:#3b4450;color:#e6e9ee}
+  .qt .btnd{position:absolute;width:22px;height:22px;border-radius:50%;background:#fff;color:#000;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);z-index:2;box-shadow:0 1px 3px #000}
+  .qt .pot{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);color:#fff;font-size:14px;background:rgba(0,0,0,.35);padding:3px 12px;border-radius:12px}
+  .qt .hcards{position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);display:flex;gap:6px}
+  .qt .pc{width:52px;height:72px;border-radius:7px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:26px;font-weight:800;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+  .qt .pc small{font-size:18px}.qt .pc.h{color:#c0392b}.qt .pc.d{color:#1f5fd6}.qt .pc.c{color:#1e8a4c}.qt .pc.s{color:#111}
+  .qt .kind{position:absolute;left:0;top:0;color:var(--muted);font-size:12px}
+  .pk{padding:3px 8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:12px}
+  .legend{color:var(--muted);font-size:12px;margin:8px 0}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:1000px){.two{grid-template-columns:1fr}}
+  .replay{font-family:ui-monospace,Consolas,monospace;font-size:13px;white-space:pre-wrap;background:#0d1013;border:1px solid var(--line);border-radius:8px;padding:12px;max-height:70vh;overflow:auto}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20}
+  .modal.on{display:flex}
+  .modal .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(900px,95vw);max-height:90vh;overflow:auto;padding:16px}
+  .modal .box h3{margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
+  .x{cursor:pointer;color:var(--muted);font-size:20px}
+  .seatrow{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .seat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;min-width:120px}
+  .seat.hero{border-color:var(--gold)}
+  .cardz{font-weight:700}
+  .seat .cardz{font-size:18px}
+  .seat.shown{background:#2a2f1a;border-color:var(--gold)}
+  .h{color:#ff6b6b}.d{color:#4dabf7}.c{color:#69db7c}.s{color:#e6e9ee}
+  .muted{color:var(--muted)}
+  .pager{display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--muted)}
+  .pager button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+  .street{color:var(--gold);font-weight:700}
+  .cb{display:inline-block;min-width:22px;padding:2px 4px;border-radius:4px;font-weight:700;font-size:12px;text-align:center;margin-right:2px;color:#fff}
+  .cb.s{background:#3b4450}.cb.h{background:#c0392b}.cb.d{background:#2f6fd6}.cb.c{background:#2e9e5b}
+  .ac{font-family:ui-monospace,Consolas,monospace;font-size:12px;letter-spacing:.3px}
+  .ac .R,.ac .B{color:var(--gold)}.ac .C{color:#69db7c}.ac .F{color:var(--neg)}.ac .X{color:var(--muted)}
+  .pot{color:var(--muted);font-size:11px}
+  .star{cursor:pointer;color:#555;font-size:16px}.star.on{color:var(--gold)}
+  .tip{position:fixed;pointer-events:none;background:#000c;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;display:none;z-index:30;white-space:pre}
+  /* replayer */
+  .modal .box.wide{width:min(1280px,97vw)}
+  .rp{display:grid;grid-template-columns:1fr 215px;gap:12px}
+  @media(max-width:900px){.rp{grid-template-columns:1fr}}
+  .table{position:relative;width:100%;aspect-ratio:1.7;margin-top:14px;background:radial-gradient(ellipse at center,#1d3a2a 0%,#142a1e 60%,#0f2016 100%);border:10px solid #2a2117;border-radius:50%/50%;box-shadow:inset 0 0 40px #000a,0 0 0 2px #3a3025}
+  .seat{position:absolute;transform:translate(-50%,-50%);width:118px;text-align:center;transition:opacity .2s}
+  .seat .box2{background:#1a1f26e6;border:1px solid var(--line);border-radius:10px;padding:5px 6px;font-size:12px}
+  .seat.hero .box2{border-color:var(--gold)}
+  .seat.act .box2{border-color:#fff;box-shadow:0 0 0 2px #fff6}
+  .seat.fold{opacity:.35}
+  .seat .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .seat .ps{color:var(--muted);font-size:11px}
+  .seat .st{font-size:14px;font-weight:700;white-space:nowrap}
+  .seat .cards{margin-bottom:3px;height:26px}
+  .seat .back{display:inline-block;width:18px;height:24px;border-radius:3px;background:repeating-linear-gradient(45deg,#3b5ccc,#3b5ccc 3px,#2e49a3 3px,#2e49a3 6px);border:1px solid #9ab;margin-right:2px;vertical-align:middle}
+  .seat .cb{min-width:20px;font-size:13px;padding:3px 4px}
+  input.alias{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:5px;padding:2px 6px;font-size:12px;width:110px;margin-right:4px}
+  .hudl{font-size:10px;color:#9fb3c8;border-top:1px solid var(--line);margin-top:3px;padding-top:2px;white-space:nowrap}
+  .bet{position:absolute;transform:translate(-50%,-50%);background:#000c;border:1px solid #556;border-radius:12px;padding:2px 8px;font-size:12px;font-weight:700;white-space:nowrap}
+  .bet::before{content:'';display:inline-block;width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#7fa3ff,#2f4fb0);border:1px solid #cde;margin-right:5px;vertical-align:-1px}
+  .center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center}
+  .center .potlbl{background:#000c;border-radius:14px;padding:3px 12px;font-weight:700;font-size:14px;display:inline-block}
+  .center .odds{color:var(--muted);font-size:12px;margin-bottom:6px;height:16px}
+  .center .board{margin-top:10px;height:34px}
+  .center .board .cb{font-size:18px;min-width:28px;padding:5px 5px;margin-right:4px}
+  .dealer{position:absolute;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:#fff;color:#000;font-size:11px;font-weight:700;line-height:20px;text-align:center}
+  .ctl{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:10px;flex-wrap:wrap}
+  .ctl button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:13px}
+  .ctl button.on{border-color:var(--acc);color:#fff;background:#243a5e}
+  .ctl .msg{margin-left:10px;color:var(--gold);font-size:13px;min-width:200px}
+  .side{border-left:1px solid var(--line);padding-left:10px;max-height:560px;overflow:auto;font-size:12px}
+  .side .h{padding:5px 6px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:nowrap}
+  .side .h>*{flex-shrink:0}
+  .side .h:hover{background:var(--panel2)}
+  .side .h.cur{background:#243a5e}
+  .side .h .cd{font-size:11px;display:flex;gap:2px}
+  textarea{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px;font:13px inherit;min-height:60px}
+  .imp{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .imp input{min-width:420px}
+  pre.log{background:#0d1013;border:1px solid var(--line);border-radius:8px;padding:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>♠ Poker Tracker</h1>
+  <nav>
+    <button data-p="overview" class="on">總覽</button>
+    <button data-p="positions">位置</button>
+    <button data-p="hands169">起手牌</button>
+    <button data-p="range">翻前範圍</button>
+    <button data-p="preflop">翻前策略</button>
+    <button data-p="strength">牌力</button>
+    <button data-p="leaks">漏洞檢查</button>
+    <button data-p="list">手牌列表</button>
+    <button data-p="sessions">場次</button>
+    <button data-p="marked">標記</button>
+    <button data-p="opps">對手</button>
+    <button data-p="import">匯入</button>
+  </nav>
+  <div class="filters">
+    <span class="muted" id="meta"></span>
+    <input type="date" id="f_from" title="起">
+    <input type="date" id="f_to" title="迄">
+    <select id="f_pos"><option value="">所有位置</option><option>UTG</option><option>MP</option><option>CO</option><option>BTN</option><option>SB</option><option>BB</option></select>
+    <input id="f_hand" placeholder="起手牌（點選）" size="12" readonly style="cursor:pointer" onclick="openPicker()" title="點一下開啟 169 起手牌選擇框">
+    <select id="f_pot"><option value="">所有底池</option><option value="LIMP">Limped</option><option value="SRP">SRP</option><option value="3BP">3BP</option><option value="4BP+">4BP+</option></select>
+    <select id="f_role"><option value="">所有角色</option><option value="raiser">Raiser（翻前最後加注者）</option><option value="caller">Caller</option><option value="fold">翻前棄牌</option></select>
+    <select id="f_ip"><option value="">IP/OOP</option><option value="1">IP</option><option value="0">OOP</option></select>
+    <select id="f_players"><option value="">翻牌人數</option><option value="hu">HU（2 人）</option><option value="multi">多人（3+）</option></select>
+    <select id="f_first"><option value="">翻前首個動作</option><option value="open">Open raise</option><option value="iso">Iso raise</option><option value="3bet">3-Bet</option><option value="4bet">4-Bet</option><option value="call">Call vs raise</option><option value="call3bet">Call vs 3-bet</option><option value="limp">Limp</option><option value="fold">Fold</option></select>
+    <select id="f_fs"><option value="">翻牌牌力</option><option value="set,two_pair,trips,straight,flush,fullhouse+">強牌（set/兩對以上）</option><option value="fullhouse+">葫蘆+</option><option value="flush">同花</option><option value="straight">順子</option><option value="set">Set</option><option value="trips">三條</option><option value="board_trips">公共三條</option><option value="two_pair">兩對</option><option value="overpair">超對</option><option value="top_pair">頂對</option><option value="mid_pair">中對</option><option value="weak_pair">弱對</option><option value="underpair">小口袋對</option><option value="mid_pair,weak_pair,underpair">中/弱對（合併）</option><option value="combo_draw">組合聽牌</option><option value="flush_draw">同花聽牌</option><option value="oesd">兩頭順聽</option><option value="gutshot">卡順</option><option value="overcards">高牌</option><option value="air">空氣</option></select>
+    <select id="f_fl"><option value="">翻牌動作線</option><option value="check-call">check-call</option><option value="check-raise">check-raise</option><option value="check-fold">check-fold</option><option value="check">check（無人下注）</option><option value="bet">bet</option><option value="bet-call">bet-call</option><option value="bet-fold">bet-fold</option><option value="call">call</option><option value="raise">raise</option><option value="fold">fold</option></select>
+    <select id="f_tl"><option value="">轉牌動作線</option><option value="check-call">check-call</option><option value="check-raise">check-raise</option><option value="check-fold">check-fold</option><option value="check">check（無人下注）</option><option value="bet">bet</option><option value="bet-call">bet-call</option><option value="bet-fold">bet-fold</option><option value="bet-raise">bet-raise</option><option value="call">call</option><option value="raise">raise</option><option value="fold">fold</option></select>
+    <select id="f_rl"><option value="">河牌動作線</option><option value="check-call">check-call</option><option value="check-raise">check-raise</option><option value="check-fold">check-fold</option><option value="check">check（無人下注）</option><option value="bet">bet</option><option value="bet-call">bet-call</option><option value="bet-fold">bet-fold</option><option value="bet-raise">bet-raise</option><option value="call">call</option><option value="raise">raise</option><option value="fold">fold</option></select>
+    <input id="f_opp" placeholder="玩家 ID" size="9" title="輸入對手的匿名 ID（對手分頁可點）"><select id="f_oppmode" title="該玩家在這些手牌裡的條件"><option value="table">同桌</option><option value="vpip">有入池</option><option value="shown">有亮牌</option></select>
+    <button class="ghost" onclick="clearFilters()">清除</button>
+  </div>
+</header>
+
+<main>
+  <div class="legend" id="scen" style="font-size:14px;color:var(--gold);margin:0 0 10px"></div>
+  <section class="page on" id="p-overview">
+    <div class="tiles" id="tiles"></div>
+    <div class="card"><h2>累積盈虧　<span style="color:#3fbf7f">■ 實際</span>　<span style="color:#aab4c0">■ All-in EV</span>　<span style="color:#4c8dff">■ 攤牌</span>　<span style="color:#e0b04a">■ 非攤牌</span>　<span class="muted" style="font-weight:400">（滑鼠移到線上看數值，點一下開該手回放）</span></h2><canvas id="graph" height="340"></canvas></div>
+    <div class="card"><h2>每日</h2><div style="overflow:auto"><table id="days"></table></div></div>
+  </section>
+
+  <section class="page" id="p-positions">
+    <div class="two">
+      <div class="card"><h2>各位置淨利（$）與 bb/100</h2><canvas id="posbar" height="300"></canvas></div>
+      <div class="card"><h2>各位置累積盈虧</h2><canvas id="posline" height="300"></canvas><div class="legend" id="poslegend"></div></div>
+    </div>
+    <div class="card"><h2>依位置</h2><div style="overflow:auto"><table id="postable"></table></div></div>
+  </section>
+
+  <section class="page" id="p-hands169">
+    <div class="two">
+      <div class="card"><h2>169 起手牌（顏色＝bb/100，點格子可篩選手牌列表）</h2>
+        <div class="grid169" id="grid"></div>
+        <div class="legend">深綠＝賺、深紅＝賠；格內數字為手數。未打過的牌淡化顯示。</div>
+      </div>
+      <div class="card"><h2>起手牌排名</h2><div style="overflow:auto;max-height:75vh"><table id="handrank"></table></div></div>
+    </div>
+  </section>
+
+  <section class="page" id="p-range">
+    <div class="two">
+      <div class="card"><h2>翻前範圍圖（格子顏色＝該動作頻率，數字＝次數/機會）</h2>
+        <div class="imp" style="margin-bottom:10px">
+          <select id="r_pos" onchange="loadRange()"><option value="">全部位置</option><option>UTG</option><option>MP</option><option>CO</option><option>BTN</option><option>SB</option><option>BB</option></select>
+          <select id="r_act" onchange="loadRange()"><option value="open">首入 Open raise</option><option value="limp">首入 Limp</option><option value="3bet">面對加注 → 3-Bet</option><option value="call">面對加注 → Call</option><option value="fold_vs_open">面對加注 → Fold</option></select>
+        </div>
+        <div class="grid169" id="rgrid"></div>
+        <div class="legend" id="rsum"></div>
+      </div>
+      <div class="card"><h2>說明</h2>
+        <p class="muted">「首入」＝你行動時前面沒人加注（可能有人 limp）。<br>「面對加注」＝你行動時前面剛好有一次加注。<br>顏色越深代表做該動作的頻率越高；淡化的格子代表沒遇過這種情境。<br>篩選列只有「日期區間」會套用到這一頁（底池類型／角色等情境條件會使範圍失真，故忽略）。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="p-preflop">
+    <div class="pftab"><button class="on" id="pft_open" onclick="pfMode('open')">首入開池範圍</button><button id="pft_vsopen" onclick="pfMode('vsopen')">面對開池</button><button id="pft_vs3b" onclick="pfMode('vs3b')">面對 3-Bet</button><button id="pft_vs4b" onclick="pfMode('vs4b')">面對 4-Bet</button><button id="pft_quiz" onclick="pfMode('quiz')">訓練模式</button></div>
+    <div id="pf_chart">
+    <div class="two" style="grid-template-columns:3fr 2fr">
+      <div class="card"><h2 id="pf_title">首入開池範圍（底色＝建議動作；格內數字＝你的實際次數）</h2>
+        <div class="imp" style="margin-bottom:10px;gap:8px;align-items:center">
+          <span class="muted">我的位置</span><select id="pf_pos" onchange="pfPosChanged();loadPreflop()"></select>
+          <span id="pf_vwrap" style="display:none"><span class="muted" id="pf_vlabel">3-Bet 者</span> <select id="pf_vpos" onchange="loadPreflop()"></select></span>
+        </div>
+        <div class="grid169" id="pfgrid" style="max-width:100%"></div>
+        <div class="legend" id="pf_legend"></div>
+      </div>
+      <div>
+        <div class="card"><h2>建議與說明</h2><div id="pf_note" class="muted" style="line-height:1.6"></div></div>
+        <div class="card"><h2>你的實際 vs 建議</h2><div id="pf_sum"></div></div>
+        <div class="card"><h2>偏離最多的格子（點一列跳到手牌）</h2><div style="overflow:auto;max-height:40vh"><table id="pf_dev"></table></div></div>
+      </div>
+    </div>
+    </div>
+    <div id="pf_quiz" style="display:none">
+    <div class="two" style="grid-template-columns:3fr 2fr">
+      <div class="card"><h2>訓練模式（80% 出邊緣牌，依剝削型範圍判定）</h2>
+        <div class="imp" style="margin-bottom:12px;gap:8px;align-items:center">
+          <span class="muted">題型</span><select id="qz_scope" onchange="QZ_SEQ++;qzNext()"><option value="mix">混合</option><option value="open">只考首入開池</option><option value="vsopen">只考面對開池</option><option value="vs3b">只考面對 3-Bet</option><option value="vs4b">只考面對 4-Bet</option><option value="bank">只考錯題庫</option></select>
+          <button onclick="QZ_SEQ++;qzNext()">出題 / 下一題</button><button class="ghost" onclick="qzReset()">清除紀錄</button>
+        </div>
+        <div class="qcard" id="qz_card"><div class="muted">按「出題」開始</div></div>
+      </div>
+      <div>
+        <div class="card"><h2>成績</h2><div id="qz_stat"></div></div>
+        <div class="card"><h2>錯題庫（答錯就進來，連續答對 2 次移出；出題時 10% 會抽到；點一列看建議表）</h2><div style="overflow:auto;max-height:45vh"><table id="qz_wrong"></table></div><div id="qz_peek" class="card" style="display:none;margin:10px 0 0;padding:10px;background:var(--panel2)"></div></div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <section class="page" id="p-strength">
+    <div class="card"><h2>翻牌牌力報表（看到翻牌的手，依翻牌時的牌力分組）</h2><div style="overflow:auto"><table id="strtable"></table></div></div>
+  </section>
+
+  <section class="page" id="p-sessions">
+    <div class="card"><h2>場次（間隔超過 <input id="gap" value="30" style="width:44px" class="ac"> 分鐘視為新場次 <button class="ghost" style="padding:2px 8px" onclick="loadSessions()">更新</button>）</h2>
+      <div style="overflow:auto;max-height:78vh"><table id="sesstable"></table></div></div>
+  </section>
+
+  <section class="page" id="p-marked">
+    <div class="card"><h2>標記手牌（在回放視窗按 ★ 或寫筆記）</h2><div style="overflow:auto;max-height:78vh"><table id="markedtable"></table></div></div>
+  </section>
+
+  <section class="page" id="p-leaks">
+    <div class="card"><h2>漏洞檢查（點一列 → 直接跳到該組手牌列表；篩選列的日期／位置等條件也會套用）
+      <span style="float:right;font-weight:400"><button class="ghost" style="padding:2px 8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;cursor:pointer" onclick="restoreLeaks()">還原已刪除的項目</button></span></h2>
+      <p class="muted" style="margin:0 0 8px">每列右邊的 ✕ 可以刪除不想看的項目。想新增自己的檢查：到「手牌列表」設定好篩選條件後按「存成檢查項目」。</p>
+      <div style="overflow:auto"><table id="leaktable"></table></div>
+    </div>
+  </section>
+
+  <section class="page" id="p-list">
+    <div class="card">
+      <h2><button id="backbtn" style="display:none;padding:3px 10px;margin-right:8px;background:var(--acc);color:#fff;border:1px solid var(--acc);border-radius:6px;cursor:pointer;font-size:13px" onclick="goBack()">← 上一頁</button>手牌列表（點擊列可回放）　<span class="muted" id="listcount"></span><span style="float:right;font-weight:400"><button class="ghost" style="padding:2px 8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;cursor:pointer" onclick="saveCustomLeak()">＋ 把目前篩選存成檢查項目</button>　<button id="quizbtn" class="ghost" style="padding:2px 8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;cursor:pointer" onclick="toggleQuiz()">河牌測驗模式：關</button>　<button class="ghost" style="padding:2px 8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;cursor:pointer" onclick="riverQuizSet()">列出河牌跟注的手</button></span></h2>
+      <div style="overflow:auto;max-height:75vh"><table id="handlist"></table></div>
+      <div class="pager"><button onclick="pageMove(-1)">‹ 上一頁</button><span id="pageinfo"></span><button onclick="pageMove(1)">下一頁 ›</button></div>
+    </div>
+  </section>
+
+  <section class="page" id="p-opps">
+    <div class="card"><h2>對手（至少 <input id="minh" value="30" size="3" style="width:50px" onchange="loadOpps()"> 手　搜尋 ID <input id="oppq" placeholder="輸入部分 ID" size="10" onchange="loadOpps()"> <button onclick="loadOpps()" class="ghost" style="padding:2px 8px">更新</button>　<span class="muted">點 ID → 複製；點該列其他地方 → 他有入池的手牌；點「亮牌」數字 → 他亮過牌的手</span>）</h2>
+      <div style="overflow:auto;max-height:78vh"><table id="oppstable"></table></div></div>
+  </section>
+
+  <section class="page" id="p-import">
+    <div class="card"><h2>匯入手牌紀錄</h2>
+      <p class="muted">輸入含有 GGPoker .txt 手牌檔的資料夾路徑（會遞迴掃描子資料夾）。已匯入過的手牌會依 Hand ID 自動略過。</p>
+      <div class="imp"><input id="folder" placeholder="資料夾路徑"><button onclick="doImport()">開始匯入</button></div>
+      <pre class="log" id="implog">尚未匯入。</pre>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="modal"><div class="box wide"><h3><span id="mtitle"></span><span><span class="star" id="mstar" onclick="toggleStar()">★</span>　<span class="x" onclick="closeModal()">✕</span></span></h3><div class="rp">
+    <div>
+      <div class="table" id="tbl"></div>
+      <div id="rphist" style="margin-top:8px;font-size:12px;line-height:1.7;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;white-space:normal"></div>
+      <div class="ctl">
+        <button onclick="rpGo(0)" title="回到開頭">⏮</button><button onclick="rpStep(-1)">←</button><button onclick="rpStep(1)">→</button><button onclick="rpGo(1e9)" title="到結尾">⏭</button>
+        <span style="width:10px"></span>
+        <button id="st_preflop" onclick="rpStreet('preflop')">翻前</button><button id="st_flop" onclick="rpStreet('flop')">翻牌</button><button id="st_turn" onclick="rpStreet('turn')">轉牌</button><button id="st_river" onclick="rpStreet('river')">河牌</button><button id="st_showdown" onclick="rpStreet('showdown')">結果</button>
+        <span class="msg" id="rpmsg"></span>
+      </div>
+      <div id="quiz" style="display:none;margin-top:10px;background:var(--panel2);border:1px solid var(--gold);border-radius:8px;padding:10px">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <b style="color:var(--gold)">河牌測驗</b><span id="quizq" class="muted"></span>
+          <span id="quizbtns"><button class="ghost" style="padding:4px 12px;background:#243a5e;color:#fff;border:1px solid var(--acc);border-radius:6px;cursor:pointer" onclick="quizAnswer('call')">跟注</button> <button class="ghost" style="padding:4px 12px;background:#4a2424;color:#fff;border:1px solid var(--neg);border-radius:6px;cursor:pointer" onclick="quizAnswer('fold')">棄牌</button></span>
+          <span id="quizres"></span>
+          <span class="muted" style="margin-left:auto" id="quiztally"></span>
+        </div>
+        <textarea id="quiznote" placeholder="跟注需要勝率 __%；對手價值牌：__；詐唬牌：__" style="min-height:44px;margin-top:8px"></textarea>
+      </div>
+      <details style="margin-top:8px" id="logdet"><summary class="muted">文字紀錄</summary><div id="mbody"></div></details>
+    </div>
+    <div class="side" id="side"></div>
+  </div>
+  <div style="margin-top:10px"><textarea id="mnote" placeholder="筆記：這手哪裡該改？"></textarea><div style="text-align:right;margin-top:6px"><span class="muted" id="msaved"></span> <button class="ghost" style="padding:4px 10px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;cursor:pointer" onclick="saveNote()">儲存筆記</button></div></div>
+</div></div>
+<div class="tip" id="tip"></div>
+<div class="modal" id="picker"><div class="box" style="width:min(760px,95vw)">
+  <h3><span>選擇起手牌（點格子切換，可拖曳；再按套用）</span><span class="x" onclick="closePicker()">✕</span></h3>
+  <div class="imp" style="margin-bottom:8px;gap:6px">
+    <button class="ghost pk" onclick="pkPreset('pairs')">所有對子</button><button class="ghost pk" onclick="pkPreset('suited')">所有同花</button><button class="ghost pk" onclick="pkPreset('offsuit')">所有不同花</button>
+    <button class="ghost pk" onclick="pkPreset('broadway')">大牌 (T+)</button><button class="ghost pk" onclick="pkPreset('Ax')">所有 Ax</button><button class="ghost pk" onclick="pkPreset('Kx')">所有 Kx</button>
+    <button class="ghost pk" onclick="pkPreset('sc')">同花連牌</button><button class="ghost pk" onclick="pkPreset('premium')">QQ+/AK</button><button class="ghost pk" onclick="pkPreset('clear')">清除</button>
+  </div>
+  <div class="grid169" id="pkgrid" style="max-width:100%;user-select:none"></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span class="muted" id="pksum"></span><span><button class="ghost" style="padding:5px 14px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;cursor:pointer" onclick="closePicker()">取消</button> <button style="padding:5px 14px;background:var(--acc);color:#fff;border:1px solid var(--acc);border-radius:6px;cursor:pointer" onclick="pkApply()">套用</button></span></div>
+</div></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const F={};
+let page=0,PAGE=100,sort='played_at',desc=true;
+const fmt=(v,d=2)=>v==null?'–':Number(v).toFixed(d);
+const money=v=>{const n=Number(v||0);return `<span class="${n>0?'pos':n<0?'neg':''}">${n>=0?'+':''}$${n.toFixed(2)}</span>`};
+const bbc=v=>{if(v==null)return '–';const n=Number(v);return `<span class="${n>0?'pos':n<0?'neg':''}">${n.toFixed(1)}</span>`};
+const pc=v=>v==null?'–':Number(v).toFixed(1)+'%';
+function q(){const p=new URLSearchParams(F);return p.toString()?'&'+p.toString():''}
+async function api(path,extra=''){const r=await fetch('/api/'+path+'?x=1'+q()+extra);return r.json()}
+function cardHtml(cs){if(!cs||!cs.length)return '<span class="muted">—</span>';return (Array.isArray(cs)?cs:cs.split(' ')).map(c=>`<span class="cardz ${c[1]}">${c[0]}${{h:'♥',d:'♦',c:'♣',s:'♠'}[c[1]]}</span>`).join(' ')}
+function badges(cs){if(!cs||!cs.length)return '';return (Array.isArray(cs)?cs:cs.split(' ')).map(c=>`<span class="cb ${c[1]}">${c[0]}${{h:'♥',d:'♦',c:'♣',s:'♠'}[c[1]]}</span>`).join('')}
+function acHtml(str){if(!str)return '';return '<span class="ac">'+str.split(' ').map(x=>`<span class="${x[0]}">${x}</span>`).join(' ')+'</span>'}
+
+// ---------- generic table sort (click any header; hand list uses server-side sort) ----------
+document.addEventListener('click',e=>{const th=e.target.closest('th');if(!th)return;const table=th.closest('table');if(!table||table.id==='handlist')return;
+  const hdr=th.parentElement;if(!hdr||hdr.querySelector('td'))return;const idx=[...hdr.children].indexOf(th);
+  const rows=[...table.querySelectorAll('tr')].filter(r=>r!==hdr&&r.children.length>idx&&!r.querySelector('th'));if(rows.length<2)return;
+  const num=t=>{t=t.replace(/[,$%＄\s]/g,'').replace(/^\+/,'');if(t===''||t==='–'||t==='-')return null;const m=t.match(/^-?\d+(\.\d+)?/);return m?parseFloat(m[0]):null};
+  const desc=th.dataset.sort!=='desc';hdr.querySelectorAll('th').forEach(x=>{x.dataset.sort='';x.classList.remove('sorted')});th.dataset.sort=desc?'desc':'asc';th.classList.add('sorted');
+  rows.sort((r1,r2)=>{const a=r1.children[idx].textContent.trim(),b=r2.children[idx].textContent.trim();const na=num(a),nb=num(b);
+    let c;if(na!=null&&nb!=null)c=na-nb;else if(na!=null)c=1;else if(nb!=null)c=-1;else c=a.localeCompare(b,'zh-Hant');return desc?-c:c});
+  const parent=rows[0].parentElement;rows.forEach(r=>parent.appendChild(r));
+  const old=th.textContent.replace(/[ ▲▼]+$/,'');th.textContent=old+(desc?' ▼':' ▲');hdr.querySelectorAll('th').forEach(x=>{if(x!==th)x.textContent=x.textContent.replace(/[ ▲▼]+$/,'')});
+});
+// ---------- nav ----------
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.p);load(b.dataset.p)});
+document.querySelectorAll('.filters select,.filters input[type=date],#f_opp').forEach(el=>el.addEventListener('change',()=>{PRESET='';EXTRA={};applyFilters()}));
+const PAGE_NAMES={overview:'總覽',positions:'位置',hands169:'起手牌',range:'翻前範圍',preflop:'翻前策略',strength:'牌力',leaks:'漏洞檢查',list:'手牌列表',sessions:'場次',marked:'標記',opps:'對手',import:'匯入'};
+let BACK=null,LAST_SNAP=null;
+const FILTER_IDS=['f_from','f_to','f_pos','f_hand','f_pot','f_role','f_ip','f_players','f_first','f_fs','f_fl','f_tl','f_rl','f_opp','f_oppmode'];
+function snapFilters(){const o={};FILTER_IDS.forEach(i=>o[i]=$('#'+i).value);o._hv=$('#f_hand').dataset.v||'';o._preset=PRESET;o._extra={...EXTRA};return o}
+function restoreFilters(o){FILTER_IDS.forEach(i=>$('#'+i).value=o[i]);$('#f_hand').dataset.v=o._hv;PRESET=o._preset;EXTRA={...o._extra}}
+function showPage(p){const cur=document.querySelector('nav button.on');const curp=cur?cur.dataset.p:'';
+  if(p==='list'&&curp&&curp!=='list'){BACK={page:curp,snap:LAST_SNAP||snapFilters()}}
+  if(p!=='list'&&p!==(BACK&&BACK.page))BACK=null;
+  const bb=$('#backbtn');if(bb){bb.style.display=BACK?'':'none';if(BACK)bb.textContent='← 回到'+(PAGE_NAMES[BACK.page]||BACK.page)}
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x.dataset.p===p));document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));$('#p-'+p).classList.add('on')}
+function goBack(){if(!BACK)return;const b=BACK;BACK=null;restoreFilters(b.snap);showPage(b.page);applyFilters()}
+function curPage(){return document.querySelector('nav button.on').dataset.p}
+function applyFilters(){
+  for(const k of Object.keys(F))delete F[k];
+  if($('#f_from').value)F.date_from=$('#f_from').value;
+  if($('#f_to').value)F.date_to=$('#f_to').value;
+  if($('#f_pos').value)F.position=$('#f_pos').value;
+  if($('#f_hand').dataset.v)F.hand169=$('#f_hand').dataset.v;
+  if($('#f_pot').value)F.pot_type=$('#f_pot').value;
+  if($('#f_role').value)F.pf_role=$('#f_role').value;
+  if($('#f_ip').value!=='')F.ip=$('#f_ip').value;
+  if($('#f_players').value)F.players=$('#f_players').value;
+  if($('#f_first').value)F.pf_first=$('#f_first').value;
+  if($('#f_fs').value)F.flop_strength=$('#f_fs').value;
+  if($('#f_fl').value)F.flop_line=$('#f_fl').value;
+  if($('#f_tl').value)F.turn_line=$('#f_tl').value;
+  if($('#f_rl').value)F.river_line=$('#f_rl').value;
+  if($('#f_opp').value.trim()){F.opp_id=$('#f_opp').value.trim();F.opp_mode=$('#f_oppmode').value}
+  if(PRESET)F.preset=PRESET;
+  Object.assign(F,EXTRA);
+  const tags=[];if(F.pot_type)tags.push(F.pot_type);if(F.pf_role)tags.push('as '+F.pf_role);if(F.ip!=null)tags.push(F.ip==='1'?'IP':'OOP');if(F.players)tags.push(F.players==='hu'?'HU':'多人');if(F.pf_first)tags.push(F.pf_first);if(F.position)tags.push(F.position);if(F.hand169)tags.push(F.hand169.split(',').length<=4?F.hand169.replace(/,/g,' '):F.hand169.split(',').length+' 種起手牌');if(F.flop_strength)tags.push('翻牌:'+$('#f_fs').selectedOptions[0].text);if(F.flop_line)tags.push('翻牌 '+F.flop_line);if(F.turn_line)tags.push('轉牌 '+F.turn_line);if(F.river_line)tags.push('河牌 '+F.river_line);if(F.preset)tags.push('預設:'+(PRESET_TITLES[F.preset]||F.preset));if(F.first_in)tags.push('首入位');if(F.vs3b_pos)tags.push('開池被 '+F.vs3b_pos+' 3-bet');if(F.vs_open_pos)tags.push('面對 '+F.vs_open_pos+' 開池');if(F.vs4b_pos)tags.push('3-bet 後被 '+F.vs4b_pos+' 4-bet');if(F.opp_id)tags.push('玩家 '+F.opp_id+'（'+{table:'同桌',vpip:'有入池',shown:'有亮牌'}[F.opp_mode]+'）');if(F.pf_resp)tags.push({fold:'棄牌',call:'跟注','4bet':'4-bet'}[F.pf_resp]);
+  $('#scen').textContent=tags.length?'情境：'+tags.join(' · '):'';
+  page=0;load(curPage());
+  if(curPage()!=='list')LAST_SNAP=snapFilters();
+}
+let PRESET='';const PRESET_TITLES={};let EXTRA={};
+function clearFilters(){PRESET='';EXTRA={};$('#f_hand').dataset.v='';['f_from','f_to','f_pos','f_hand','f_pot','f_role','f_ip','f_players','f_first','f_fs','f_fl','f_tl','f_rl','f_opp'].forEach(i=>$('#'+i).value='');$('#f_oppmode').value='table';applyFilters()}
+
+async function load(p){
+  if(p==='overview')return loadOverview();
+  if(p==='positions')return loadPositions();
+  if(p==='hands169')return loadGrid();
+  if(p==='range')return loadRange();
+  if(p==='preflop')return loadPreflop();
+  if(p==='leaks')return loadLeaks();
+  if(p==='strength')return loadStrength();
+  if(p==='sessions')return loadSessions();
+  if(p==='marked')return loadMarked();
+  if(p==='list')return loadList();
+  if(p==='opps')return loadOpps();
+  if(p==='import')return loadImportPage();
+}
+
+// ---------- overview ----------
+async function loadOverview(){
+  const [o,g,d]=await Promise.all([api('overall'),api('graph'),api('days')]);
+  const t=[
+    ['手數',o.hands||0,''],['淨利',money(o.net),`${bbc(o.bb_won)} bb`],['bb/100',bbc(o.bb100),''],
+    ['VPIP',pc(o.vpip),''],['PFR',pc(o.pfr),''],['3-Bet',pc(o.threebet),`${o.threebet_n||0}/${o.threebet_opp||0}`],
+    ['Fold to 3-Bet',pc(o.fold_to_3bet),`${o.f3b_n||0}/${o.f3b_opp||0}`],['C-Bet (Flop)',pc(o.cbet),`${o.cbet_n||0}/${o.cbet_opp||0}`],
+    ['Fold to C-Bet',pc(o.fold_to_cbet),`${o.fcb_n||0}/${o.fcb_opp||0}`],['WTSD',pc(o.wtsd),'看到翻牌後攤牌率'],['W$SD',pc(o.wsd),'攤牌勝率'],
+    ['WWSF',pc(o.wwsf),'看翻牌後贏下底池'],['Agg Factor',fmt(o.af),'(bet+raise)/call'],['Steal',pc(o.steal),'CO/BTN/SB 首入加注'],
+    ['攤牌盈虧',money(o.sd_net),''],['非攤牌盈虧',money(o.nsd_net),''],['最大單手贏',money(o.biggest_win),''],['最大單手輸',money(o.biggest_loss),''],
+  ];
+  $('#tiles').innerHTML=t.map(([k,v,s])=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+  drawGraph(g);
+  $('#days').innerHTML='<tr><th>日期</th><th>手數</th><th>淨利</th><th>bb/100</th><th>VPIP</th><th>PFR</th></tr>'+
+    d.map(r=>`<tr><td>${r.day}</td><td>${r.hands}</td><td>${money(r.net)}</td><td>${bbc(r.bb100)}</td><td>${pc(r.vpip)}</td><td>${pc(r.pfr)}</td></tr>`).join('');
+}
+let GRAPH=null;
+function drawGraph(g){
+  GRAPH=g;
+  const cv=$('#graph');const dpr=window.devicePixelRatio||1;
+  const W=cv.clientWidth,H=340;cv.width=W*dpr;cv.height=H*dpr;const ctx=cv.getContext('2d');ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+  const pts=g.points||[];if(!pts.length){ctx.fillStyle='#8b95a3';ctx.fillText('沒有資料',20,30);return}
+  const bb=g.bb||0.05;const L=54,R=12,T=12,B=26;
+  let mn=0,mx=0;pts.forEach(p=>{for(const v of p){mn=Math.min(mn,v);mx=Math.max(mx,v)}});
+  if(mx===mn){mx+=1;mn-=1}const pad=(mx-mn)*.06;mx+=pad;mn-=pad;
+  const X=i=>L+(W-L-R)*i/Math.max(1,pts.length-1),Y=v=>T+(H-T-B)*(1-(v-mn)/(mx-mn));
+  g._X=X;g._Y=Y;g._L=L;g._R=R;g._W=W;
+  ctx.strokeStyle='#2e3640';ctx.fillStyle='#8b95a3';ctx.font='11px sans-serif';ctx.textAlign='right';
+  const steps=6;for(let i=0;i<=steps;i++){const v=mn+(mx-mn)*i/steps;const y=Y(v);ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(W-R,y);ctx.stroke();ctx.fillText('$'+v.toFixed(1),L-6,y+4)}
+  ctx.textAlign='center';for(let i=0;i<=5;i++){const n=Math.round((g.n-1)*i/5);ctx.fillText(n+' 手',L+(W-L-R)*i/5,H-8)}
+  const y0=Y(0);ctx.strokeStyle='#5c6675';ctx.beginPath();ctx.moveTo(L,y0);ctx.lineTo(W-R,y0);ctx.stroke();
+  const series=[[2,'#e0b04a',1.2],[1,'#4c8dff',1.2],[3,'#aab4c0',1.4],[0,'#3fbf7f',2]];
+  for(const [k,col,w] of series){ctx.strokeStyle=col;ctx.lineWidth=w;ctx.beginPath();pts.forEach((p,i)=>{i?ctx.lineTo(X(i),Y(p[k])):ctx.moveTo(X(i),Y(p[k]))});ctx.stroke()}
+  ctx.fillStyle='#e6e9ee';ctx.textAlign='left';ctx.font='12px sans-serif';const last=pts[pts.length-1];
+  ctx.fillText(`實際 $${last[0].toFixed(2)} (${(last[0]/bb).toFixed(0)} bb)　All-in EV $${last[3].toFixed(2)}`,L+8,T+14);
+}
+(function(){
+  const cv=$('#graph'),tip=$('#tip');let hi=-1;
+  cv.addEventListener('mousemove',e=>{
+    if(!GRAPH||!GRAPH.points.length)return;const r=cv.getBoundingClientRect();const x=e.clientX-r.left;
+    const n=GRAPH.points.length;const i=Math.max(0,Math.min(n-1,Math.round((x-GRAPH._L)/(GRAPH._W-GRAPH._L-GRAPH._R)*(n-1))));hi=i;
+    const p=GRAPH.points[i];const handNo=Math.round(i/(n-1)*(GRAPH.n-1))+1;
+    tip.style.display='block';tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY+14)+'px';
+    tip.textContent=`第 ${handNo} 手\n實際 $${p[0].toFixed(2)}\nEV   $${p[3].toFixed(2)}\n攤牌 $${p[1].toFixed(2)}\n非攤牌 $${p[2].toFixed(2)}`;
+  });
+  cv.addEventListener('mouseleave',()=>{tip.style.display='none';hi=-1});
+  cv.addEventListener('click',()=>{if(hi>=0&&GRAPH.ids&&GRAPH.ids[hi])openHand(GRAPH.ids[hi])});
+})();
+
+// ---------- positions ----------
+const POSCOL={UTG:'#e5534b',MP:'#e0b04a',CO:'#3fbf7f',BTN:'#4c8dff',SB:'#b07cff',BB:'#ff8fb3'};
+function drawPosBar(rows){
+  const cv=$('#posbar');const dpr=window.devicePixelRatio||1;const W=cv.clientWidth,H=300;cv.width=W*dpr;cv.height=H*dpr;const ctx=cv.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
+  const vals=rows.map(r=>r.net||0);const mx=Math.max(1,...vals.map(Math.abs));const L=50,R=10,T=20,B=40;const y0=T+(H-T-B)/2;const sc=(H-T-B)/2/mx;
+  const bw=(W-L-R)/rows.length;
+  ctx.strokeStyle='#5c6675';ctx.beginPath();ctx.moveTo(L,y0);ctx.lineTo(W-R,y0);ctx.stroke();
+  ctx.font='12px sans-serif';ctx.textAlign='center';
+  rows.forEach((r,i)=>{const x=L+bw*i+bw*0.2;const h=(r.net||0)*sc;ctx.fillStyle=r.net>=0?'#3fbf7f':'#e5534b';ctx.fillRect(x,h>=0?y0-h:y0,bw*0.6,Math.abs(h));
+    ctx.fillStyle='#e6e9ee';ctx.fillText(r.position,x+bw*0.3,H-22);ctx.fillStyle='#8b95a3';ctx.fillText(`$${(r.net||0).toFixed(2)} / ${r.bb100==null?'–':r.bb100.toFixed(1)}`,x+bw*0.3,H-6);
+    ctx.fillStyle='#8b95a3';ctx.fillText(`${r.hands} 手`,x+bw*0.3,h>=0?y0-h-6:y0+Math.abs(h)+14)});
+}
+function drawPosLine(series){
+  const cv=$('#posline');const dpr=window.devicePixelRatio||1;const W=cv.clientWidth,H=300;cv.width=W*dpr;cv.height=H*dpr;const ctx=cv.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
+  const L=50,R=10,T=12,B=24;let mn=0,mx=0,maxn=1;for(const k in series){for(const v of series[k]){mn=Math.min(mn,v);mx=Math.max(mx,v)}maxn=Math.max(maxn,series[k].length)}
+  if(mx===mn){mx+=1;mn-=1}const pad=(mx-mn)*.06;mx+=pad;mn-=pad;
+  const Y=v=>T+(H-T-B)*(1-(v-mn)/(mx-mn));
+  ctx.strokeStyle='#2e3640';ctx.fillStyle='#8b95a3';ctx.font='11px sans-serif';ctx.textAlign='right';
+  for(let i=0;i<=5;i++){const v=mn+(mx-mn)*i/5;const y=Y(v);ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(W-R,y);ctx.stroke();ctx.fillText('$'+v.toFixed(1),L-6,y+4)}
+  ctx.strokeStyle='#5c6675';ctx.beginPath();ctx.moveTo(L,Y(0));ctx.lineTo(W-R,Y(0));ctx.stroke();
+  ctx.textAlign='center';ctx.fillText('該位置手數 →',W/2,H-6);
+  for(const k in series){const v=series[k];if(!v.length)continue;ctx.strokeStyle=POSCOL[k];ctx.lineWidth=1.6;ctx.beginPath();v.forEach((y,i)=>{const x=L+(W-L-R)*i/Math.max(1,v.length-1);i?ctx.lineTo(x,Y(y)):ctx.moveTo(x,Y(y))});ctx.stroke()}
+  $('#poslegend').innerHTML=Object.keys(series).map(k=>`<span style="color:${POSCOL[k]}">■ ${k}</span>`).join('　');
+}
+async function loadPositions(){
+  const [rows,pg]=await Promise.all([api('positions'),api('position_graph')]);
+  drawPosBar(rows);drawPosLine(pg);
+  const cols=[['position','位置'],['hands','手數'],['net','淨利'],['bb100','bb/100'],['vpip','VPIP'],['pfr','PFR'],['threebet','3-Bet'],['fold_to_3bet','F3B'],['cbet','C-Bet'],['fold_to_cbet','FCB'],['wtsd','WTSD'],['wsd','W$SD'],['wwsf','WWSF'],['af','AF'],['steal','Steal']];
+  $('#postable').innerHTML='<tr>'+cols.map(c=>`<th>${c[1]}</th>`).join('')+'</tr>'+rows.map(r=>'<tr>'+cols.map(([k])=>{
+    let v=r[k];if(k==='net')v=money(v);else if(k==='bb100')v=bbc(v);else if(k==='af')v=fmt(v);else if(['hands','position'].includes(k))v=v??0;else v=pc(v);
+    return `<td>${v}</td>`}).join('')+'</tr>').join('');
+}
+
+// ---------- hand picker ----------
+let PK=new Set(),PK_DRAG=false,PK_MODE=true;
+function allHands(){const o=[];for(let i=0;i<13;i++)for(let j=0;j<13;j++){o.push(i===j?RANKS[i]+RANKS[j]:i<j?RANKS[i]+RANKS[j]+'s':RANKS[j]+RANKS[i]+'o')}return o}
+function openPicker(){PK=new Set(($('#f_hand').dataset.v||'').split(',').filter(Boolean));renderPicker();$('#picker').classList.add('on')}
+function closePicker(){$('#picker').classList.remove('on')}
+function renderPicker(){
+  let html='';
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){const name=i===j?RANKS[i]+RANKS[j]:i<j?RANKS[i]+RANKS[j]+'s':RANKS[j]+RANKS[i]+'o';
+    html+=`<div class="cell ${PK.has(name)?'sel':''}" data-h="${name}" onmousedown="pkDown(event,'${name}')" onmouseenter="pkEnter('${name}')"><b>${name}</b></div>`}
+  $('#pkgrid').innerHTML=html;$('#pksum').textContent=PK.size?`已選 ${PK.size} 種：`+[...PK].slice(0,12).join(' ')+(PK.size>12?' …':''):'尚未選擇';
+}
+function pkDown(e,h){e.preventDefault();PK_DRAG=true;PK_MODE=!PK.has(h);pkSet(h)}
+function pkEnter(h){if(PK_DRAG)pkSet(h)}
+function pkSet(h){if(PK_MODE)PK.add(h);else PK.delete(h);const el=document.querySelector(`#pkgrid .cell[data-h="${h}"]`);if(el)el.classList.toggle('sel',PK_MODE);$('#pksum').textContent=PK.size?`已選 ${PK.size} 種：`+[...PK].slice(0,12).join(' ')+(PK.size>12?' …':''):'尚未選擇'}
+document.addEventListener('mouseup',()=>PK_DRAG=false);
+function pkPreset(k){
+  const H=allHands();const hi='AKQJT';
+  const f={pairs:h=>h.length===2,suited:h=>h.endsWith('s'),offsuit:h=>h.endsWith('o'),broadway:h=>hi.includes(h[0])&&hi.includes(h[1]),Ax:h=>h[0]==='A',Kx:h=>h[0]==='K',
+    sc:h=>h.endsWith('s')&&RANKS.indexOf(h[1])-RANKS.indexOf(h[0])===1,premium:h=>['AA','KK','QQ','AKs','AKo'].includes(h),clear:h=>false}[k];
+  if(k==='clear')PK=new Set();else H.filter(f).forEach(h=>PK.add(h));renderPicker();
+}
+function pkApply(){const v=[...PK].join(',');$('#f_hand').dataset.v=v;$('#f_hand').value=PK.size===0?'':PK.size<=3?[...PK].join(' '):`${[...PK].slice(0,2).join(' ')} +${PK.size-2}`;closePicker();applyFilters()}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePicker()});
+
+// ---------- 169 grid ----------
+const RANKS='AKQJT98765432';
+async function loadGrid(){
+  const d=await api('hands169');
+  let html='';const list=Object.values(d).sort((a,b)=>b.net-a.net);
+  const maxAbs=Math.max(1,...list.map(x=>Math.abs(x.net)));
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){
+    const r1=RANKS[i],r2=RANKS[j];let name;
+    if(i===j)name=r1+r2;else if(i<j)name=r1+r2+'s';else name=r2+r1+'o';
+    const s=d[name];
+    if(!s){html+=`<div class="cell empty"><b>${name}</b></div>`;continue}
+    const a=Math.min(1,Math.abs(s.net)/maxAbs)*0.75+0.15;
+    const bg=s.net>0?`rgba(63,191,127,${a})`:s.net<0?`rgba(229,83,75,${a})`:'var(--panel2)';
+    html+=`<div class="cell" style="background:${bg}" title="${name}: ${s.hands} 手, $${s.net}, ${s.bb100} bb/100" onclick="filterHand('${name}')"><b>${name}</b><small>${s.hands}</small></div>`;
+  }
+  $('#grid').innerHTML=html;
+  $('#handrank').innerHTML='<tr><th>牌</th><th>手數</th><th>淨利</th><th>bb/100</th><th>VPIP</th><th>PFR</th><th>WTSD</th></tr>'+
+    list.map(s=>`<tr class="row" onclick="filterHand('${s.hand}')"><td>${s.hand}</td><td>${s.hands}</td><td>${money(s.net)}</td><td>${bbc(s.bb100)}</td><td>${pc(s.vpip)}</td><td>${pc(s.pfr)}</td><td>${s.wtsd_n}</td></tr>`).join('');
+}
+function filterHand(h){PRESET='';EXTRA={};$('#f_hand').value=h;$('#f_hand').dataset.v=h;showPage('list');applyFilters()}
+
+// ---------- range chart ----------
+async function loadRange(){
+  const d=await api('range',`&pos=${$('#r_pos').value}&action=${$('#r_act').value}`);
+  let html='';let totOpp=0,totN=0;
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){
+    const r1=RANKS[i],r2=RANKS[j];let name;
+    if(i===j)name=r1+r2;else if(i<j)name=r1+r2+'s';else name=r2+r1+'o';
+    const s=d[name];
+    if(!s){html+=`<div class="cell empty"><b>${name}</b></div>`;continue}
+    totOpp+=s.opp;totN+=s.n;
+    const a=s.freq/100*0.85+0.1;
+    html+=`<div class="cell" style="background:rgba(76,141,255,${a})" title="${name}: ${s.n}/${s.opp} (${s.freq}%)" onclick="filterHand('${name}')"><b>${name}</b><small>${s.n}/${s.opp}</small></div>`;
+  }
+  $('#rgrid').innerHTML=html;
+  $('#rsum').textContent=`整體：${totN}/${totOpp} = ${totOpp?(100*totN/totOpp).toFixed(1):0}%`;
+}
+
+// ---------- preflop strategy ----------
+let PFC=null,PF_MODE='open';
+const POSN=['UTG','MP','CO','BTN','SB','BB'];
+const ACT_ZH={open:'開池',fold:'棄牌','4bet':'4-Bet','3bet':'3-Bet','5bet':'5-Bet 全下',call:'跟注',na:'不在範圍內'};
+const TIER_ZH={ip_vs_early:'IP・面對早位開池',ip_vs_late:'IP・面對後位開池',sb_vs_early:'SB 面對早位開池',sb_vs_late:'SB 面對後位偷盲',bb_vs_early:'BB 面對早位開池',bb_vs_late:'BB 面對後位偷盲',bb_vs_sb:'BB 面對 SB 開池',oop_tight:'OOP・對手範圍最緊',oop_btn:'OOP・被 BTN 3-bet',ip_blinds_early:'IP・早位開池被盲注 3-bet',ip_blinds_late:'IP・後位開池被盲注 3-bet',sb_vs_bb:'SB 開池被 BB 3-bet',ip_vs4b:'IP・3-bet 後被 4-bet',oop_vs4b:'OOP・3-bet 後被 4-bet'};
+async function pfCharts(){if(!PFC)PFC=await api('preflop_charts');return PFC}
+function pfMode(m){PF_MODE=m;['open','vsopen','vs3b','vs4b','quiz'].forEach(k=>$('#pft_'+k).classList.toggle('on',k===m));
+  $('#pf_chart').style.display=m==='quiz'?'none':'';$('#pf_quiz').style.display=m==='quiz'?'':'none';
+  $('#pf_vwrap').style.display=m==='open'||m==='quiz'?'none':'';$('#pf_vlabel').textContent=m==='vsopen'?'開池者':m==='vs4b'?'4-Bet 者（開池者）':'3-Bet 者';
+  $('#pf_title').textContent=m==='open'?'首入開池範圍（底色＝建議動作；格內數字＝你的實際 開池/機會）':m==='vsopen'?'面對開池決策（底色＝建議動作；格內＝你的實際 3B/跟/棄 次數）':m==='vs4b'?'面對 4-Bet 決策（我 3-bet 後被開池者 4-bet；格內＝你的實際 5B/跟/棄 次數）':'面對 3-Bet 決策（底色＝建議動作；格內＝你的實際 4B/跟/棄 次數）';
+  if(m==='quiz'){qzRender()}else{pfPosChanged();loadPreflop()}}
+function pfPosChanged(){const ps=$('#pf_pos');const VO=PF_MODE==='vsopen'||PF_MODE==='vs4b';const heroList=VO?POSN.slice(1):POSN.slice(0,5);const hcur=ps.value||'BTN';
+  ps.innerHTML=heroList.map(v=>`<option ${v===hcur?'selected':''}>${v}</option>`).join('');if(!heroList.includes(hcur))ps.value=VO?'BB':'BTN';
+  const hp=ps.value;const i=POSN.indexOf(hp);const sel=$('#pf_vpos');const cur=sel.value;
+  const vl=VO?POSN.slice(0,i):POSN.slice(i+1);
+  sel.innerHTML=vl.map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');if(!vl.includes(cur))sel.selectedIndex=VO?sel.options.length-1:sel.options.length-1}
+async function loadPreflop(){
+  if(PF_MODE==='quiz')return qzRender();
+  if(!$('#pf_pos').options.length)pfPosChanged();
+  const pos=$('#pf_pos').value,vpos=$('#pf_vpos').value||'BB';
+  const d=await api('preflop',`&mode=${PF_MODE}&pos=${pos}&vpos=${vpos}`);
+  const ch=d.chart,ac=d.actual;let html='';const devs=[];
+  let sumOpp=0,sumOpen=0,recOpenOpp=0,recOpenN=0,recFoldOpp=0,recFoldN=0;
+  const RK=PF_MODE==='vsopen'?'3bet':PF_MODE==='vs4b'?'5bet':'4bet';const cnt={[RK]:{rec:0,did:0,opp:0},call:{rec:0,did:0,opp:0},fold:{rec:0,did:0,opp:0}};let tot={f:0,c:0,b:0,opp:0};
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){
+    const r1=RANKS[i],r2=RANKS[j];let name;
+    if(i===j)name=r1+r2;else if(i<j)name=r1+r2+'s';else name=r2+r1+'o';
+    const rec=ch.action[name];const a=ac[name];let small='',dev=false,tip=`${name}：建議 ${ACT_ZH[rec]}`;
+    if(PF_MODE==='open'){
+      if(a){small=`${a.open}/${a.opp}`;sumOpp+=a.opp;sumOpen+=a.open;const fr=a.open/a.opp;
+        if(rec==='open'){recOpenOpp+=a.opp;recOpenN+=a.open;if(a.opp>=4&&fr<0.5)dev=true}
+        else{recFoldOpp+=a.opp;recFoldN+=a.open;if(a.opp>=4&&fr>0.5)dev=true}
+        tip+=`｜實際開池 ${a.open}/${a.opp}（${(100*fr).toFixed(0)}%）｜開池手淨利 $${a.net}、EV $${a.ev}`;
+        if(dev)devs.push({name,rec,a,txt:rec==='open'?`建議開、你只開 ${(100*fr).toFixed(0)}%`:`建議棄、你開了 ${(100*fr).toFixed(0)}%`})}
+    }else{
+      if(a&&rec!=='na'){small=`${a[RK]}/${a.call}/${a.fold}`;tot.b+=a[RK];tot.c+=a.call;tot.f+=a.fold;tot.opp+=a.opp;
+        cnt[rec].rec+=a.opp;cnt[rec].did+=a[rec];const fr=a[rec]/a.opp;if(a.opp>=3&&fr<0.5)dev=true;
+        tip+=`｜實際 ${ACT_ZH[RK]} ${a[RK]}、跟 ${a.call}、棄 ${a.fold}｜淨利 $${a.net}、EV $${a.ev}`;
+        if(dev){const most=[RK,'call','fold'].sort((x,y)=>a[y]-a[x])[0];devs.push({name,rec,a,txt:`建議 ${ACT_ZH[rec]}、你多半 ${ACT_ZH[most]}（${a[most]}/${a.opp}）`})}}
+      else if(a){small=`${a.opp}手`;tip+=`（不在建議範圍，但你遇到 ${a.opp} 次）`}
+    }
+    html+=`<div class="cell a-${rec} ${dev?'dev':''}" title="${tip}" onclick="pfJump('${name}')"><b>${name}</b><small>${small||'&nbsp;'}</small></div>`;
+  }
+  $('#pfgrid').innerHTML=html;
+  if(PF_MODE==='open'){
+    $('#pf_legend').innerHTML=`<span class="cell a-open" style="display:inline-block;width:14px;height:14px;aspect-ratio:auto;vertical-align:middle"></span> 建議開池　<span class="cell a-fold" style="display:inline-block;width:14px;height:14px;aspect-ratio:auto;vertical-align:middle"></span> 建議棄牌　<span class="cell dev" style="display:inline-block;width:14px;height:14px;aspect-ratio:auto;vertical-align:middle"></span> 你的實際與建議相反（機會 ≥4 手）`;
+    $('#pf_note').innerHTML=`<b style="color:var(--text)">${pos} 建議首入範圍：${ch.pct}%</b><br>${ch.note}<br><span style="font-size:12px">範圍：${ch.range.join(' ')}</span>`;
+    const actPct=sumOpp?100*sumOpen/sumOpp:0;
+    $('#pf_sum').innerHTML=`<table><tr><th></th><th>建議</th><th>你的實際</th></tr>
+      <tr><td>首入加注率</td><td>${ch.pct}%</td><td>${actPct.toFixed(1)}%（${sumOpen}/${sumOpp} 首入機會）</td></tr>
+      <tr><td>建議開的牌，你有開</td><td>100%</td><td>${recOpenOpp?(100*recOpenN/recOpenOpp).toFixed(0):'–'}%（${recOpenN}/${recOpenOpp}）</td></tr>
+      <tr><td>建議棄的牌，你卻開</td><td>0%</td><td>${recFoldOpp?(100*recFoldN/recFoldOpp).toFixed(0):'–'}%（${recFoldN}/${recFoldOpp}）</td></tr></table>
+      <div class="muted" style="margin-top:6px;font-size:12px">「首入機會」＝輪到你時前面沒人投錢。實際加注率低於建議＝開太緊；「建議棄卻開」高＝範圍外亂開。</div>`;
+  }else{
+    $('#pf_legend').innerHTML=`<span class="cell a-4bet" style="display:inline-block;width:14px;height:14px;aspect-ratio:auto;vertical-align:middle"></span> ${ACT_ZH[RK]}　<span class="cell a-call" style="display:inline-block;width:14px;height:14px;aspect-ratio:auto;vertical-align:middle"></span> 跟注　<span class="cell a-fold" style="display:inline-block;width:14px;height:14px;aspect-ratio:auto;vertical-align:middle"></span> 棄牌　<span class="cell a-na" style="display:inline-block;width:14px;height:14px;aspect-ratio:auto;vertical-align:middle"></span> 不在開池範圍　<span class="cell dev" style="display:inline-block;width:14px;height:14px;aspect-ratio:auto;vertical-align:middle"></span> 你的做法與建議不同（≥3 手）`;
+    if(PF_MODE==='vsopen')$('#pf_note').innerHTML=`<b style="color:var(--text)">${pos} 面對 ${vpos} 開池（${TIER_ZH[ch.tier]}）</b><br>建議：3-bet ${ch.three_pct}%・跟注 ${ch.call_pct}%・棄牌 ${ch.fold_pct}%（整體抵抗 ${(ch.three_pct+ch.call_pct).toFixed(1)}%）<br>${ch.note}`;
+    else if(PF_MODE==='vs4b')$('#pf_note').innerHTML=`<b style="color:var(--text)">${pos} 3-bet ${vpos} 的開池後被 4-bet（${TIER_ZH[ch.tier]}）</b><br>建議：5-bet 全下 ${ch.five_pct}%・跟注 ${ch.call_pct}%・棄牌 ${ch.fold_pct}%（佔 3-bet 範圍）<br>${ch.note}`;
+    else $('#pf_note').innerHTML=`<b style="color:var(--text)">${pos} 開池，被 ${vpos} 3-bet（${TIER_ZH[ch.tier]}）</b><br>建議：4-bet ${ch.four_pct}%・跟注 ${ch.call_pct}%・棄牌 ${ch.fold_pct}%（佔開池範圍）<br>${ch.note}`;
+    const row=(k)=>`<tr><td>建議 ${ACT_ZH[k]} 的牌</td><td>${cnt[k].rec}</td><td>${cnt[k].rec?(100*cnt[k].did/cnt[k].rec).toFixed(0)+'%':'–'}（${cnt[k].did}/${cnt[k].rec}）</td></tr>`;
+    $('#pf_sum').innerHTML=`<table><tr><th></th><th>遇到次數</th><th>你照建議做的比例</th></tr>${row(RK)}${row('call')}${row('fold')}
+      <tr><td><b>整體</b></td><td>${tot.opp}</td><td>${ACT_ZH[RK]} ${tot.opp?(100*tot.b/tot.opp).toFixed(0):0}%・跟 ${tot.opp?(100*tot.c/tot.opp).toFixed(0):0}%・棄 ${tot.opp?(100*tot.f/tot.opp).toFixed(0):0}%</td></tr></table>`;
+  }
+  devs.sort((x,y)=>y.a.opp-x.a.opp);
+  $('#pf_dev').innerHTML=devs.length?'<tr><th>牌</th><th style="text-align:left">偏離</th><th>手數</th><th>淨利</th><th>EV</th></tr>'+devs.map(d=>`<tr class="row" onclick="pfJump('${d.name}')"><td><b>${d.name}</b></td><td style="text-align:left" class="muted">${d.txt}</td><td>${d.a.opp}</td><td>${money(d.a.net)}</td><td>${money(d.a.ev)}</td></tr>`).join(''):'<tr><td class="muted">沒有明顯偏離（或樣本不足）</td></tr>';
+}
+async function pfShow(kind,pos,vpos,hand){
+  const c=await pfCharts();const ch=kind==='open'?c.open[pos]:c[kind][pos+'-'+vpos];if(!ch)return;
+  const title=kind==='open'?`${pos} 首入開池`:kind==='vsopen'?`${pos} 面對 ${vpos} 開池`:kind==='vs3b'?`${pos} 開池被 ${vpos} 3-bet`:`${pos} 3-bet 後被 ${vpos} 4-bet`;
+  let g='';for(let i=0;i<13;i++)for(let j=0;j<13;j++){const n=handAt(i,j);g+=`<div class="cell a-${ch.action[n]} ${n===hand?'hit':''}"><b>${n}</b></div>`}
+  const el=$('#qz_peek');el.style.display='';
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>${title}　<span style="color:var(--gold)">${hand}：${ACT_ZH[ch.action[hand]]}</span></b><span class="x" onclick="$('#qz_peek').style.display='none'">✕</span></div><div class="grid169" id="peekgrid" style="max-width:100%"></div><div class="muted" style="font-size:12px;margin-top:6px;line-height:1.5">${ch.note}</div>`;
+  $('#peekgrid').innerHTML=g;el.scrollIntoView({block:'nearest'});
+}
+function pfJump(h){
+  const pos=$('#pf_pos').value,vpos=$('#pf_vpos').value;
+  PRESET='';EXTRA={};['f_pot','f_role','f_ip','f_players','f_first','f_fs','f_fl','f_tl','f_rl'].forEach(i=>$('#'+i).value='');
+  $('#f_pos').value=pos;$('#f_hand').value=h;$('#f_hand').dataset.v=h;
+  if(PF_MODE==='open')EXTRA={first_in:'1'};else if(PF_MODE==='vsopen')EXTRA={vs_open_pos:vpos};else if(PF_MODE==='vs4b'){EXTRA={vs4b_pos:vpos};$('#f_first').value='3bet'}else{EXTRA={vs3b_pos:vpos};$('#f_first').value='open'}
+  showPage('list');applyFilters();
+}
+// ---------- preflop quiz ----------
+const SUITS=['s','h','d','c'];
+function randCards(h){const r1=h[0],r2=h[1];let s1=SUITS[Math.floor(Math.random()*4)],s2;
+  if(h.length===2||h[2]==='o'){do{s2=SUITS[Math.floor(Math.random()*4)]}while(s2===s1)}else s2=s1;return [r1+s1,r2+s2]}
+function pickWeighted(hands){const w=hands.map(h=>h.length===2?6:h[2]==='s'?4:12);let t=w.reduce((a,b)=>a+b,0),x=Math.random()*t;for(let i=0;i<hands.length;i++){x-=w[i];if(x<=0)return hands[i]}return hands[hands.length-1]}
+function handAt(i,j){const r1=RANKS[i],r2=RANKS[j];return i===j?r1+r2:i<j?r1+r2+'s':r2+r1+'o'}
+// 邊緣牌：格子的上下左右鄰居有不同建議動作（排除不在範圍內的格子）
+function borderline(act){const out=[];for(let i=0;i<13;i++)for(let j=0;j<13;j++){const h=handAt(i,j);const a=act[h];if(a==='na')continue;
+  const nb=[[i-1,j],[i+1,j],[i,j-1],[i,j+1]].filter(([x,y])=>x>=0&&y>=0&&x<13&&y<13).map(([x,y])=>act[handAt(x,y)]).filter(v=>v!=='na');
+  if(nb.some(v=>v!==a))out.push(h)}return out}
+function pickHand(act){const all=Object.keys(act).filter(h=>act[h]!=='na');const b=borderline(act);
+  if(b.length&&Math.random()<0.8)return pickWeighted(b);return pickWeighted(all)}
+const KIND_ZH={open:'首入開池',vsopen:'面對開池',vs3b:'面對 3-Bet',vs4b:'面對 4-Bet'};
+function bankKey(q){return [q.kind,q.pos,q.vpos||'',q.hand].join('|')}
+let QZ=null,QZ_SEQ=0;
+async function qzNext(){
+  const c=await pfCharts();const scope=$('#qz_scope').value;const bank=lsGet('pf_bank',{});const bkeys=Object.keys(bank);
+  let q=null;
+  if(scope==='bank'||(bkeys.length&&Math.random()<0.10)){
+    if(!bkeys.length){$('#qz_card').innerHTML='<div class="muted">錯題庫是空的，先用其他題型練習</div>';return}
+    // 錯越多次的越常出
+    const w=bkeys.map(k=>bank[k].n+1);let t=w.reduce((a,b)=>a+b,0),x=Math.random()*t,key=bkeys[0];for(let i=0;i<bkeys.length;i++){x-=w[i];if(x<=0){key=bkeys[i];break}}
+    const [kind,pos,vpos,hand]=key.split('|');const ch=kind==='open'?c.open[pos]:c[kind][pos+'-'+vpos];
+    if(ch)q={kind,pos,vpos,hand,ans:ch.action[hand],note:ch.note,fromBank:true};
+  }
+  if(!q){
+    let kind=scope==='mix'||scope==='bank'?['open','vsopen','vs3b','vs4b'][Math.floor(Math.random()*4)]:scope;
+    if(kind==='open'){const pos=['UTG','MP','CO','BTN','SB'][Math.floor(Math.random()*5)];const ch=c.open[pos];const hand=pickHand(ch.action);q={kind,pos,vpos:'',hand,ans:ch.action[hand],note:ch.note}}
+    else{const pairs=Object.keys(c[kind]);const ch=c[kind][pairs[Math.floor(Math.random()*pairs.length)]];const hand=pickHand(ch.action);q={kind,pos:ch.hero,vpos:ch.villain,hand,ans:ch.action[hand],note:ch.note}}
+  }
+  q.cards=randCards(q.hand);QZ=q;
+  $('#qz_card').innerHTML=qzTable(q)+`<div id="qz_btns" style="text-align:center;margin-top:8px">${qzButtons(q)}</div><div class="qres" id="qz_res"></div>`;
+}
+function qzButtons(q){const B=(cls,a,t)=>`<button class="qbtn ${cls}" onclick="qzAnswer('${a}')">${t}</button>`;
+  if(q.kind==='open')return B('open','open','開池 Raise')+B('fold','fold','棄牌 Fold');
+  if(q.kind==='vsopen')return B('b3','3bet','3-Bet')+B('call','call','跟注 Call')+B('fold','fold','棄牌 Fold');
+  if(q.kind==='vs3b')return B('b4','4bet','4-Bet')+B('call','call','跟注 Call')+B('fold','fold','棄牌 Fold');
+  return B('b4','5bet','5-Bet 全下')+B('call','call','跟注 Call')+B('fold','fold','棄牌 Fold')}
+// 牌桌：Hero 固定在下方，順時針 SB→BB→UTG→MP→CO→BTN
+function qzTable(q){
+  const RING=['SB','BB','UTG','MP','CO','BTN'];const XY=[[50,86],[13,68],[13,30],[50,13],[87,30],[87,68]];
+  const k=RING.indexOf(q.pos);const seats=XY.map((xy,i)=>({pos:RING[(k+i)%6],x:xy[0],y:xy[1],hero:i===0}));
+  const ORDER=['UTG','MP','CO','BTN','SB','BB'];const acts={};let pot=1.5;
+  const bet3=(q.vpos==='SB'||q.vpos==='BB')?10:8;
+  for(const p of ORDER)acts[p]=[];
+  const foldUntil=(stop)=>{for(const p of ORDER){if(p===stop)break;if(!acts[p].length)acts[p].push(['fold','棄牌'])}};
+  if(q.kind==='open'){foldUntil(q.pos);}
+  else if(q.kind==='vsopen'){foldUntil(q.vpos);acts[q.vpos].push(['raise','加注 2.5bb']);pot+=2.5;for(const p of ORDER.slice(ORDER.indexOf(q.vpos)+1)){if(p===q.pos)break;acts[p].push(['fold','棄牌'])}}
+  else if(q.kind==='vs3b'){foldUntil(q.pos);acts[q.pos].push(['raise','開池 2.5bb']);pot+=2.5;for(const p of ORDER.slice(ORDER.indexOf(q.pos)+1)){if(p===q.vpos){acts[p].push(['raise','3-Bet '+bet3+'bb']);pot+=bet3}else acts[p].push(['fold','棄牌'])}
+    for(const p of ORDER.slice(0,ORDER.indexOf(q.pos))){if(acts[p].length&&acts[p][0][0]==='fold')continue}}
+  else{ // vs4b：villain 開池、hero 3-bet、villain 4-bet
+    foldUntil(q.vpos);acts[q.vpos].push(['raise','開池 2.5bb']);const b3=(q.pos==='SB'||q.pos==='BB')?11:9;const b4=Math.round(b3*2.4);
+    for(const p of ORDER.slice(ORDER.indexOf(q.vpos)+1)){if(p===q.pos)acts[p].push(['raise','3-Bet '+b3+'bb']);else acts[p].push(['fold','棄牌'])}
+    acts[q.vpos].push(['raise','4-Bet '+b4+'bb']);pot=1.5+b3+b4-( (q.pos==='SB')?0.5:(q.pos==='BB')?1:0 );
+    for(const p of ['SB','BB']){if(p!==q.pos&&p!==q.vpos&&!acts[p].length)acts[p].push(['fold','棄牌'])}
+  }
+  // 盲注尚未行動時顯示已投盲
+  const blind={SB:'SB 0.5bb',BB:'BB 1bb'};
+  const seatHtml=seats.map(s=>{const a=acts[s.pos]||[];const last=a.length?a[a.length-1]:null;
+    let chip=last?`<span class="act ${last[0]}">${last[1]}</span>`:(blind[s.pos]&&!s.hero?`<span class="act blind">${blind[s.pos]}</span>`:'');
+    if(s.hero)chip=(a.length?`<span class="act ${a[a.length-1][0]}">${a[a.length-1][1]}</span> `:'')+`<span class="act wait">輪到你</span>`;
+    return `<div class="seat ${s.hero?'hero':''}" style="left:${s.x}%;top:${s.y}%"><div class="nm">${s.hero?'你・':''}${s.pos}</div><div>${chip}</div></div>`}).join('');
+  const btn=seats.find(s=>s.pos==='BTN');const bx=btn.x+(btn.x<50?9:-9),by=btn.y+(btn.y<50?12:-12);
+  const cards=q.cards.map(cd=>`<span class="pc ${cd[1]}">${cd[0]}<small>${{h:'♥',d:'♦',c:'♣',s:'♠'}[cd[1]]}</small></span>`).join('');
+  return `<div class="qt"><div class="felt"></div>${seatHtml}<div class="btnd" style="left:${bx}%;top:${by}%">D</div><div class="pot">底池 ${pot.toFixed(1)}bb</div><div class="hcards">${cards}</div><div class="kind">${KIND_ZH[q.kind]}${q.fromBank?'・錯題庫':''}</div></div>`;
+}
+function qzAnswer(a){
+  if(!QZ||QZ.done)return;QZ.done=true;const ok=a===QZ.ans;
+  const log=lsGet('pf_quiz',[]);log.push({t:Date.now(),kind:QZ.kind,pos:QZ.pos,vpos:QZ.vpos||'',hand:QZ.hand,ans:QZ.ans,you:a,ok});if(log.length>500)log.splice(0,log.length-500);lsSet('pf_quiz',log);
+  const bank=lsGet('pf_bank',{});const key=bankKey(QZ);
+  if(!ok){const e=bank[key]||{n:0,ok:0,ans:QZ.ans};e.n++;e.ok=0;e.you=a;e.t=Date.now();bank[key]=e}
+  else if(bank[key]){bank[key].ok++;if(bank[key].ok>=2)delete bank[key]}
+  lsSet('pf_bank',bank);
+  $('#qz_res').className='qres '+(ok?'ok':'bad');
+  $('#qz_res').innerHTML=(ok?'✔ 正確':`✘ 錯了，建議是「${ACT_ZH[QZ.ans]}」`)+`<div class="muted" style="font-size:13px;margin-top:6px;text-align:left">${QZ.note}</div>`;
+  document.querySelectorAll('#qz_btns .qbtn').forEach(b=>b.disabled=true);
+  qzStats();
+  const seq=++QZ_SEQ;setTimeout(()=>{if(seq===QZ_SEQ&&PF_MODE==='quiz')qzNext()},ok?1000:3500);
+}
+function qzStats(){
+  const log=lsGet('pf_quiz',[]);const n=log.length,k=log.filter(x=>x.ok).length;const last=log.slice(-20);const ln=last.length,lk=last.filter(x=>x.ok).length;
+  const byKind=kd=>{const l=log.filter(x=>x.kind===kd);return l.length?`${l.filter(x=>x.ok).length}/${l.length}（${(100*l.filter(x=>x.ok).length/l.length).toFixed(0)}%）`:'–'};
+  const bank=lsGet('pf_bank',{});const bn=Object.keys(bank).length;
+  $('#qz_stat').innerHTML=`<table><tr><td>累計</td><td>${n?`${k}/${n}（${(100*k/n).toFixed(0)}%）`:'–'}</td></tr><tr><td>最近 20 題</td><td>${ln?`${lk}/${ln}（${(100*lk/ln).toFixed(0)}%）`:'–'}</td></tr><tr><td>首入開池</td><td>${byKind('open')}</td></tr><tr><td>面對開池</td><td>${byKind('vsopen')}</td></tr><tr><td>面對 3-Bet</td><td>${byKind('vs3b')}</td></tr><tr><td>面對 4-Bet</td><td>${byKind('vs4b')}</td></tr><tr><td>錯題庫</td><td>${bn} 題（連續答對 2 次才會移出）</td></tr></table>`;
+  const rows=Object.entries(bank).sort((a,b)=>b[1].n-a[1].n).slice(0,40);
+  const scen=(kind,pos,vpos)=>kind==='open'?pos+' 首入':kind==='vsopen'?pos+' vs '+vpos+' 開池':kind==='vs3b'?pos+' 開池被 '+vpos+' 3B':pos+' 3B 被 '+vpos+' 4B';
+  $('#qz_wrong').innerHTML=rows.length?'<tr><th>情境</th><th>牌</th><th>錯次</th><th>你上次答</th><th>建議</th></tr>'+rows.map(([key,e])=>{const [kind,pos,vpos,hand]=key.split('|');return `<tr class="row" title="點一下看這個情境的建議表" onclick="pfShow('${kind}','${pos}','${vpos}','${hand}')"><td>${scen(kind,pos,vpos)}</td><td><b>${hand}</b></td><td>${e.n}</td><td class="neg">${ACT_ZH[e.you]||''}</td><td class="pos">${ACT_ZH[e.ans]}</td></tr>`}).join(''):'<tr><td class="muted">錯題庫是空的</td></tr>';
+}
+function qzReset(){if(!confirm('清除訓練紀錄與錯題庫？'))return;lsSet('pf_quiz',[]);lsSet('pf_bank',{});qzStats()}
+function qzRender(){qzStats();if(!QZ)$('#qz_card').innerHTML='<div class="muted">按「出題」開始</div>'}
+
+// ---------- leaks ----------
+function lsGet(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}fetch('/api/kv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k,value:v})}).catch(()=>{})}
+// 設定與訓練紀錄存在 tracker.db 的 kv 表（exe 每次開的埠不同，localStorage 會被清掉）
+async function kvSync(){try{const kv=await fetch('/api/kv').then(r=>r.json());
+  for(const [k,v] of Object.entries(kv)){try{localStorage.setItem(k,v)}catch(e){}}
+  for(const k of ['leak_hidden','leak_custom','quiz_log','quiz_on','pf_quiz','pf_bank']){if(!(k in kv)&&localStorage.getItem(k)!=null)lsSet(k,lsGet(k,null))}
+}catch(e){}}
+let CUSTOM_FILTER=null;
+async function loadLeaks(){
+  const hidden=lsGet('leak_hidden',[]);const custom=lsGet('leak_custom',[]);
+  const rows=(await api('presets')).filter(r=>!hidden.includes(r.key));
+  rows.forEach(r=>PRESET_TITLES[r.key]=r.title);
+  // custom presets: count via /api/overall with saved filters (plus current date/position filters)
+  const base={...F};delete base.preset;
+  const customRows=await Promise.all(custom.filter(c=>!hidden.includes(c.key)).map(async c=>{
+    const p=new URLSearchParams({...base,...c.filters});const o=await fetch('/api/overall?'+p).then(r=>r.json());
+    PRESET_TITLES[c.key]=c.title;return {key:c.key,title:c.title,desc:'自訂：'+c.desc,hands:o.hands||0,net:o.net||0,ev:o.ev_net??o.net??0,custom:true,filters:c.filters};
+  }));
+  const all=[...rows,...customRows];
+  $('#leaktable').innerHTML='<tr><th>檢查項目</th><th style="text-align:left">說明</th><th>手數</th><th>All-in EV</th><th>實際淨利</th><th></th></tr>'+
+    (all.length?all.map(r=>`<tr class="row" onclick="${r.custom?`openCustom('${r.key}')`:`openPreset('${r.key}')`}"><td><b>${r.title}</b></td><td style="text-align:left" class="muted">${r.desc}</td><td>${r.hands}</td><td>${money(r.ev??r.net)}</td><td>${money(r.net)}</td><td><span class="x" title="刪除這個項目" onclick="event.stopPropagation();hideLeak('${r.key}')">✕</span></td></tr>`).join(''):'<tr><td colspan="6" class="muted">全部刪光了，按右上角「還原」可以找回來</td></tr>');
+}
+function hideLeak(k){const h=lsGet('leak_hidden',[]);if(!h.includes(k))h.push(k);lsSet('leak_hidden',h);loadLeaks()}
+function restoreLeaks(){lsSet('leak_hidden',[]);loadLeaks()}
+function openPreset(k){CUSTOM_FILTER=null;EXTRA={};PRESET=k;showPage('list');applyFilters()}
+function openCustom(k){const c=lsGet('leak_custom',[]).find(x=>x.key===k);if(!c)return;PRESET='';showPage('list');
+  // load the saved filters into the filter bar, then apply
+  const m={date_from:'f_from',date_to:'f_to',position:'f_pos',hand169:'f_hand',pot_type:'f_pot',pf_role:'f_role',ip:'f_ip',players:'f_players',pf_first:'f_first',flop_strength:'f_fs',flop_line:'f_fl',turn_line:'f_tl',river_line:'f_rl',opp_id:'f_opp',opp_mode:'f_oppmode'};
+  for(const id of Object.values(m))$('#'+id).value='';
+  for(const [k2,id] of Object.entries(m))if(c.filters[k2]!=null)$('#'+id).value=c.filters[k2];
+  if(c.filters.hand169){$('#f_hand').dataset.v=c.filters.hand169}
+  applyFilters();$('#scen').textContent='情境：'+c.title}
+function saveCustomLeak(){
+  const f={...F};delete f.preset;
+  if(!Object.keys(f).length){alert('目前沒有任何篩選條件');return}
+  const title=prompt('這個檢查項目的名稱？',$('#scen').textContent.replace('情境：','')||'自訂檢查');if(!title)return;
+  const custom=lsGet('leak_custom',[]);custom.push({key:'c_'+Date.now(),title,desc:$('#scen').textContent.replace('情境：',''),filters:f});lsSet('leak_custom',custom);
+  alert('已存到「漏洞檢查」分頁');
+}
+
+// ---------- hand list ----------
+const FS={set:'Set',two_pair:'兩對',trips:'三條',board_trips:'公共三條',straight:'順子',flush:'同花','fullhouse+':'葫蘆+',overpair:'超對',top_pair:'頂對',mid_pair:'中對',weak_pair:'弱對',underpair:'小口袋對',combo_draw:'組合聽牌',flush_draw:'同花聽牌',oesd:'兩頭順聽',gutshot:'卡順',overcards:'高牌',air:'空氣'};
+function setSort(k){if(sort===k)desc=!desc;else{sort=k;desc=true}page=0;loadList()}
+function pageMove(d){page=Math.max(0,page+d);loadList()}
+let LIST_ROWS=[],LIST_SEQ=0;
+async function loadList(){
+  const seq=++LIST_SEQ;
+  const d=await api('hands',`&sort=${sort}&desc=${desc?1:0}&limit=${PAGE}&offset=${page*PAGE}`);
+  if(seq!==LIST_SEQ)return;
+  $('#listcount').textContent=`共 ${d.total} 手`;LIST_ROWS=d.rows;
+  $('#pageinfo').textContent=`第 ${page+1} / ${Math.max(1,Math.ceil(d.total/PAGE))} 頁`;
+  const arrow=k=>sort===k?(desc?' ▼':' ▲'):'';
+  const sn={preflop:'翻前',flop:'翻牌',turn:'轉牌',river:'河牌'};
+  $('#handlist').innerHTML=`<tr><th>★</th><th onclick="setSort('played_at')">時間${arrow('played_at')}</th><th>位置</th><th>底牌</th><th style="text-align:left">翻前</th><th style="text-align:left">翻牌</th><th style="text-align:left">轉牌</th><th style="text-align:left">河牌</th><th onclick="setSort('pot')">底池${arrow('pot')}</th><th onclick="setSort('net')">盈虧${arrow('net')}</th><th onclick="setSort('ev')">EV差${arrow('ev')}</th><th>情境</th><th>牌力</th><th>對手亮牌</th></tr>`+
+    d.rows.map(r=>{
+      const b=(r.board||'').split(' ').filter(Boolean);
+      const cell=(st,cards)=>`<td style="text-align:left">${cards?badges(cards)+' ':''}${acHtml(r.line[st])}${r.pots&&r.pots[st]!=null&&r.line[st]?` <span class="pot">${(r.pots[st]/r.bb).toFixed(0)}bb</span>`:''}</td>`;
+      return `<tr class="row" onclick="openHand('${r.hand_id}')"><td><span class="star ${r.star?'on':''}" title="標記/取消" onclick="event.stopPropagation();toggleStarRow(this,'${r.hand_id}')">★</span></td><td>${r.played_at.slice(5,16)}</td><td>${r.position}</td><td>${badges(r.cards)}</td>`+
+        cell('preflop',null)+cell('flop',b.slice(0,3))+cell('turn',b.slice(3,4))+cell('river',b.slice(4,5))+
+        `<td>$${fmt(r.total_pot)}</td><td>${money(r.net)}</td><td class="muted">${r.allin_street?money(r.ev_diff):''}</td><td class="muted">${r.pot_type}${r.pf_role==='raiser'?' R':r.pf_role==='caller'?' C':''}${r.ip===1?' IP':r.ip===0?' OOP':''}</td><td class="muted">${r.flop_strength?FS[r.flop_strength]||r.flop_strength:''}</td><td>${r.opp_cards?r.opp_cards.split(' | ').map(x=>{const [p,c]=x.split(':');return `<span class="muted">${p}</span> ${badges(c)}`}).join(' '):''}</td></tr>`}).join('');
+}
+
+// ---------- replay ----------
+let RP=null,RP_NAV=[],QUIZ=lsGet('quiz_on',false),QUIZ_CUR=null;
+async function openHand(id){
+  let d;try{d=await fetch('/api/hand?id='+id).then(r=>r.json())}catch(e){alert('讀取手牌失敗：'+e);return}
+  if(!d||!d.hand){alert('讀取手牌失敗：'+(d&&d.error||'伺服器回應異常，請重新啟動 start.bat'));return}
+  d.hud=d.hud||{};d.session=d.session||[];
+  const h=d.hand;const P={};d.players.forEach(p=>P[p.name]=p);
+  const hero=P['Hero']||{};
+  $('#mtitle').innerHTML=`<span title="點一下複製手牌編號" style="cursor:copy;text-decoration:underline dotted" onclick="copyText('${h.hand_id}',this)">#${h.hand_id}</span> · ${h.played_at} · ${h.pot_type}${hero.pf_role==='raiser'?' as Raiser':hero.pf_role==='caller'?' as Caller':''}${hero.ip===1?' · IP':hero.ip===0?' · OOP':''}`+(QUIZ?'':` · Hero ${money(h.hero_net)}${h.allin_street?' · EV '+money(h.hero_ev_net):''}`);
+  // ---- text log (kept) ----
+  const sn={preflop:'翻前',flop:'翻牌',turn:'轉牌',river:'河牌'};
+  const bd=(h.board||'').split(' ').filter(Boolean);
+  const boardAt={flop:bd.slice(0,3),turn:bd.slice(0,4),river:bd.slice(0,5)};
+  let cur='',lines=[];
+  for(const a of d.actions){
+    if(a.street!==cur){cur=a.street;lines.push(`\n<span class="street">── ${sn[cur]||cur}${boardAt[cur]?' '+cardHtml(boardAt[cur]):''} ──</span>`)}
+    const p=P[a.name]||{};const who=`${(p.position||'').padEnd(3)} ${a.name==='Hero'?'<b>Hero</b>':a.name.slice(0,8)}`;
+    const act={folds:'棄牌',checks:'過牌',calls:'跟注',bets:'下注',raises:'加注'}[a.action]||a.action;
+    lines.push(`${who}  ${act}${a.amount?' $'+fmt(a.amount):''}${a.action==='raises'?' (至 $'+fmt(a.total)+')':''}${a.all_in?' ALL-IN':''}`);
+  }
+  lines.push(`\n<span class="street">── 結果 ──</span>`);
+  d.players.filter(p=>p.collected>0).forEach(p=>lines.push(`${p.name==='Hero'?'<b>Hero</b>':p.name.slice(0,8)} 收下 $${fmt(p.collected)}`));
+  lines.push(`底池 $${fmt(h.total_pot)}　抽水 $${fmt(h.rake)}　Jackpot $${fmt(h.jackpot)}${h.run_times>1?'　(發 '+h.run_times+' 次)':''}`);
+  if(h.allin_street)lines.push(`All-in 於${sn[h.allin_street]}　Hero 勝率 ${(h.hero_equity*100).toFixed(1)}%　All-in EV ${money(h.hero_ev_net)}（實際 ${money(h.hero_net)}）`);
+  $('#mbody').innerHTML=`<div class="replay" style="max-height:40vh">${lines.join('\n').trim()}</div><details style="margin-top:10px"><summary class="muted">原始紀錄</summary><pre class="log">${h.raw.replace(/</g,'&lt;')}</pre></details>`;
+  CUR_HAND=h.hand_id;$('#mstar').className='star '+(d.star?'on':'');$('#mnote').value=d.note||'';$('#msaved').textContent='';
+  // ---- sidebar ----
+  const fromMarked=curPage()==='marked'&&MARKED_ROWS.some(x=>x.hand_id===h.hand_id);
+  const fromList=!fromMarked&&curPage()==='list'&&LIST_ROWS.some(x=>x.hand_id===h.hand_id);
+  const items=fromMarked?MARKED_ROWS.map(x=>({hand_id:x.hand_id,hero_cards:x.cards,hero_net:x.net,saw_showdown:0,position:x.position})):fromList?LIST_ROWS.map(x=>({hand_id:x.hand_id,hero_cards:x.cards,hero_net:x.net,saw_showdown:x.saw_showdown,position:x.position})):d.session;
+  const title=fromMarked?`標記手牌 ${items.length} 手`:fromList?`目前篩選 ${items.length} 手${$('#scen').textContent?'<br><span style="color:var(--gold)">'+$('#scen').textContent.replace('情境：','')+'</span>':''}`:`同場次 ${items.length} 手`;
+  $('#side').innerHTML=`<div class="muted" style="padding:4px 6px;white-space:normal">${title}</div>`+items.map(x=>`<div class="h ${x.hand_id===h.hand_id?'cur':''}" id="sh_${x.hand_id}" onclick="openHand('${x.hand_id}')"><span class="cd">${x.position?'<span class="muted" style="margin-right:3px">'+x.position+'</span>':''}${badges(x.hero_cards)}</span><span>${QUIZ?'':money(x.hero_net)}${x.saw_showdown&&!QUIZ?' <span class="muted">👁</span>':''}</span></div>`).join('');
+  RP_NAV=items.map(x=>x.hand_id);
+  // ---- build replay ----
+  try{buildReplay(d)}catch(e){console.error(e);$('#tbl').innerHTML='<div class="muted" style="padding:20px">回放器載入失敗：'+e.message+'</div>'}
+  $('#modal').classList.add('on');
+  setTimeout(()=>{const el=$('#sh_'+h.hand_id);if(el)el.scrollIntoView({block:'center'})},50);
+}
+function toggleQuiz(){QUIZ=!QUIZ;lsSet('quiz_on',QUIZ);$('#quizbtn').textContent='河牌測驗模式：'+(QUIZ?'開':'關');$('#quizbtn').style.borderColor=QUIZ?'var(--gold)':'var(--line)'}
+function riverQuizSet(){PRESET='';clearFilters();$('#f_rl').value='call';if(!QUIZ)toggleQuiz();applyFilters()}
+function quizTally(){const q=lsGet('quiz_log',[]);const g=q.filter(x=>x.correct!=null);const c=g.filter(x=>x.correct).length;$('#quiztally').textContent=g.length?`累計 ${c}/${g.length} 正確（${(100*c/g.length).toFixed(0)}%）`:''}
+function buildReplay(d){
+  const h=d.hand;const bb=h.bb||0.05;
+  const players=d.players.map(p=>({...p}));
+  const byName={};players.forEach(p=>byName[p.name]=p);
+  const bd=(h.board||'').split(' ').filter(Boolean);
+  const steps=[];
+  // blinds
+  const sb=players.find(p=>p.position==='SB'),bbp=players.find(p=>p.position==='BB');
+  if(sb)steps.push({t:'post',name:sb.name,amt:h.sb,street:'preflop',msg:`${lbl(sb)} 貼小盲`});
+  if(bbp)steps.push({t:'post',name:bbp.name,amt:bb,street:'preflop',msg:`${lbl(bbp)} 貼大盲`});
+  steps.push({t:'deal',street:'preflop',msg:'發底牌'});
+  let cur='preflop';
+  for(const a of d.actions){
+    if(a.street!==cur){cur=a.street;steps.push({t:'street',street:cur,cards:cur==='flop'?bd.slice(0,3):cur==='turn'?bd.slice(0,4):bd.slice(0,5),msg:`${({flop:'翻牌',turn:'轉牌',river:'河牌'})[cur]} ${cur==='flop'?bd.slice(0,3).join(' '):cur==='turn'?bd[3]:bd[4]}`})}
+    const p=byName[a.name];const act={folds:'棄牌',checks:'過牌',calls:'跟注',bets:'下注',raises:'加注'}[a.action];
+    steps.push({t:'act',street:cur,name:a.name,action:a.action,amount:a.amount,total:a.total,allin:a.all_in,msg:`${lbl(p)} ${act}${a.total?' '+(a.total/bb).toFixed(1)+'bb':a.amount?' '+(a.amount/bb).toFixed(1)+'bb':''}${a.all_in?' ALL-IN':''}`});
+  }
+  if(bd.length>=3&&cur==='preflop')steps.push({t:'street',street:'flop',cards:bd.slice(0,3),msg:'翻牌 '+bd.slice(0,3).join(' ')});
+  if(bd.length>=4&&cur!=='river'&&cur!=='turn')steps.push({t:'street',street:'turn',cards:bd.slice(0,4),msg:'轉牌 '+bd[3]});
+  if(bd.length>=5&&cur!=='river')steps.push({t:'street',street:'river',cards:bd.slice(0,5),msg:'河牌 '+bd[4]});
+  const winners=players.filter(p=>p.collected>0);
+  steps.push({t:'showdown',street:'showdown',msg:winners.map(p=>`${lbl(p)} 收下 ${(p.collected/bb).toFixed(1)}bb`).join('，')});
+  RP={d,players,byName,steps,i:0,bb,quiz:false};
+  function lbl(p){return p.name==='Hero'?'Hero':`${p.position} ${p.name.slice(0,6)}`}
+  // quiz: find Hero's river decision facing a bet
+  let qi=-1;
+  for(let k=0;k<steps.length;k++){const s=steps[k];if(s.t==='act'&&s.street==='river'&&s.name==='Hero'&&['calls','folds','raises'].includes(s.action)&&steps.slice(0,k).some(x=>x.t==='act'&&x.street==='river'&&x.name!=='Hero'&&['bets','raises'].includes(x.action)))qi=k}
+  $('#quiz').style.display='none';$('#logdet').style.display=QUIZ?'none':'';
+  if(QUIZ&&qi>0){
+    RP.quiz=true;RP.qi=qi;RP.revealed=false;
+    const past=lsGet('quiz_log',[]).find(x=>x.hand_id===d.hand.hand_id);
+    $('#quizq').textContent='對手在河牌下注，你會怎麼做？（想好勝率與範圍再按）';
+    $('#quizbtns').style.display=past?'none':'';$('#quizres').innerHTML=past?`你之前答過：${past.guess==='call'?'跟注':'棄牌'}，${past.correct==null?'無法判定':past.correct?'✓ 正確':'✗ 錯誤'}`:'';
+    $('#quiznote').value=past?past.note||'':'';$('#quiz').style.display='block';quizTally();
+    rpGo(qi-1);
+  }else{
+    if(QUIZ){$('#quizq').textContent='這手沒有「河牌面對下注」的決策點';$('#quizbtns').style.display='none';$('#quizres').textContent='';$('#quiz').style.display='block';quizTally()}
+    rpGo(Math.min(2,steps.length-1));
+  }
+}
+function rpState(upto){
+  const {players,steps,bb}=RP;
+  const st={};players.forEach(p=>st[p.name]={stack:p.stack,bet:0,folded:false,allin:false,shown:false});
+  let pot=0,board=[],street='preflop',actor=null,msg='',lastAct=null;const label={};const hist=[];let raises=0;
+  const endStreet=()=>{for(const n in st){pot+=st[n].bet;st[n].bet=0}};
+  for(let k=0;k<=upto&&k<steps.length;k++){
+    const s=steps[k];actor=null;msg=s.msg;
+    if(s.t==='post'){st[s.name].bet+=s.amt;st[s.name].stack-=s.amt;actor=s.name;label[s.name]=(s.name===(players.find(p=>p.position==='SB')||{}).name)?'小盲':'大盲'}
+    else if(s.t==='street'){endStreet();board=s.cards;street=s.street;for(const n in label){if(!st[n].folded)label[n]=''}hist.push({street:s.street,text:null})}
+    else if(s.t==='act'){actor=s.name;const p=st[s.name];lastAct={name:s.name,action:s.action};
+      let lb='';
+      if(s.action==='folds'){p.folded=true;lb='棄牌'}
+      else if(s.action==='checks')lb='過牌';
+      else if(s.action==='calls'){p.bet+=s.amount;p.stack-=s.amount;lb='跟注'}
+      else if(s.action==='bets'){p.bet+=s.amount;p.stack-=s.amount;lb='下注 '+(s.total/bb).toFixed(1)}
+      else if(s.action==='raises'){const add=s.total-p.bet;p.bet=s.total;p.stack-=add;
+        if(s.street==='preflop'){raises++;lb=(raises===1?'開池 ':raises===2?'3-bet ':raises===3?'4-bet ':raises+'-bet ')+(s.total/bb).toFixed(1)}else lb='加注 '+(s.total/bb).toFixed(1)}
+      if(s.allin){p.allin=true;lb+=' 全下'}
+      label[s.name]=lb;
+      const who=s.name==='Hero'?'Hero':(RP.byName[s.name].position);hist.push({street:s.street,text:who+' '+lb});}
+    else if(s.t==='showdown'){endStreet();pot=0;street='showdown';players.forEach(p=>{if(p.cards&&!st[p.name].folded)st[p.name].shown=true;st[p.name].stack+=p.collected||0});}
+  }
+  // pot odds for next actor
+  let odds='';const nx=steps[upto+1];
+  if(nx&&nx.t==='act'&&(nx.action==='calls'||nx.action==='folds'||nx.action==='raises')){
+    const mx=Math.max(...Object.values(st).map(x=>x.bet));const toCall=mx-st[nx.name].bet;
+    if(toCall>0){const total=pot+Object.values(st).reduce((a,x)=>a+x.bet,0);odds=`${RP.byName[nx.name].name==='Hero'?'Hero':RP.byName[nx.name].position} 面對 ${(toCall/bb).toFixed(1)}bb，底池賠率 ${(total/toCall).toFixed(1)} : 1`}
+  }
+  return {st,pot,board,street,actor,msg,odds,label,hist};
+}
+function rpRender(){
+  const {players,steps,i,bb,d}=RP;const h=d.hand;
+  const S=rpState(i);
+  const n=players.length;const heroSeat=(players.find(p=>p.name==='Hero')||players[0]).seat;
+  const seats=players.map(p=>p.seat).sort((a,b)=>a-b);
+  const tbl=$('#tbl');let html='';
+  const W=tbl.clientWidth||760,H=tbl.clientHeight||W/1.75;
+  const pos=(seat,r)=>{const k=(seats.indexOf(seat)-seats.indexOf(heroSeat)+n)%n;const ang=Math.PI/2+k*2*Math.PI/n;return [50+r*41*Math.cos(ang),50+r*40*Math.sin(ang)]};
+  for(const p of players){
+    const s=S.st[p.name];const [x,y]=pos(p.seat,1);const [bx,by]=pos(p.seat,0.55);
+    const showCards=p.name==='Hero'||s.shown||(S.street==='showdown'&&p.cards&&!s.folded);
+    const cards=showCards&&p.cards?badges(p.cards):(s.folded?'':'<span class="back"></span><span class="back"></span>');
+    const hud=d.hud[p.name];
+    html+=`<div class="seat ${p.name==='Hero'?'hero':''} ${s.folded?'fold':''} ${S.actor===p.name?'act':''}" style="left:${x}%;top:${y}%">
+      <div class="cards">${cards}</div>
+      <div class="box2"><div class="nm">${p.name==='Hero'?'Hero':(d.aliases&&d.aliases[p.name]&&d.aliases[p.name].alias)?`<span style="color:var(--gold)" title="${p.name}">${d.aliases[p.name].alias}</span>`:p.name.slice(0,8)}</div><div class="ps">${p.position}${S.label[p.name]?' · <span style="color:var(--gold)">'+S.label[p.name]+'</span>':''}</div><div class="st">${(s.stack/bb).toFixed(1)} <span class="ps">bb</span>${s.allin?' <span style="color:var(--neg);font-size:10px">AI</span>':''}</div>${hud&&p.name!=='Hero'?`<div class="hudl" title="手數 / VPIP / PFR / 3-Bet">${hud.hands}h · ${hud.vpip??'–'}/${hud.pfr??'–'}/${hud.threebet??'–'}</div>`:''}</div></div>`;
+    if(s.bet>0)html+=`<div class="bet" style="left:${bx}%;top:${by}%">${(s.bet/bb).toFixed(1)}</div>`;
+    if(p.seat===h.button_seat){const [dx,dy]=pos(p.seat,0.74);html+=`<div class="dealer" style="left:${dx}%;top:${dy}%">D</div>`}
+  }
+  const streetPot=S.pot+Object.values(S.st).reduce((a,x)=>a+x.bet,0);
+  html+=`<div class="center"><div class="odds">${S.odds}</div><div class="potlbl">底池 ${(streetPot/bb).toFixed(1)} bb</div><div class="board">${S.board.length?badges(S.board):''}</div></div>`;
+  tbl.innerHTML=html;
+  const sn2={preflop:'翻前',flop:'翻牌',turn:'轉牌',river:'河牌',showdown:'結果'};
+  const groups=[];let g=null;for(const hh of S.hist){if(hh.text===null){g={street:hh.street,items:[]};groups.push(g);continue}if(!g||g.street!==hh.street){g={street:hh.street,items:[]};groups.push(g)}g.items.push(hh.text)}
+  $('#rphist').innerHTML=groups.filter(x=>x.items.length).map(x=>`<span class="street">${sn2[x.street]||x.street}</span> ${x.items.join(' → ')}`).join('<span class="muted">　｜　</span>')||'<span class="muted">（尚未有動作）</span>';
+  $('#rpmsg').textContent=`${i+1}/${steps.length}　${S.msg}`;
+  ['preflop','flop','turn','river','showdown'].forEach(k=>{const b=$('#st_'+k);b.classList.toggle('on',S.street===k);b.disabled=!steps.some(s=>s.street===k)});
+}
+function rpGo(i){if(!RP)return;let j=Math.max(0,Math.min(RP.steps.length-1,i));if(RP.quiz&&!RP.revealed&&j>=RP.qi)j=RP.qi-1;RP.i=j;rpRender()}
+function quizAnswer(g){if(!RP||!RP.quiz)return;const d=RP.d;const hero=d.players.find(p=>p.name==='Hero')||{};const actual=RP.steps[RP.qi].action;let correct=null;
+  if(actual==='calls'||actual==='raises'){const won=hero.net>0;correct=(g==='call')?won:!won}
+  const log=lsGet('quiz_log',[]).filter(x=>x.hand_id!==d.hand.hand_id);log.push({hand_id:d.hand.hand_id,guess:g,actual,correct,net:hero.net,note:$('#quiznote').value,at:new Date().toISOString().slice(0,16)});lsSet('quiz_log',log);
+  RP.revealed=true;$('#quizbtns').style.display='none';
+  $('#quizres').innerHTML=`你選：<b>${g==='call'?'跟注':'棄牌'}</b>　實際：<b>${{calls:'跟注',folds:'棄牌',raises:'加注'}[actual]}</b>　結果 ${money(hero.net)}　${correct==null?'<span class="muted">（實際棄牌，看不到對手牌，無法判定）</span>':correct?'<span class="pos">✓ 正確</span>':'<span class="neg">✗ 錯誤</span>'}`;
+  if($('#quiznote').value)postNote({note:'[河牌測驗 '+(g==='call'?'跟':'棄')+(correct==null?'':correct?' ✓':' ✗')+'] '+$('#quiznote').value});
+  quizTally();rpGo(RP.steps.length-1)}
+function rpStep(d){rpGo(RP.i+d)}
+function rpStreet(k){if(!RP)return;const idx=RP.steps.findIndex(s=>s.street===k);if(idx>=0)rpGo(k==='preflop'?Math.min(2,RP.steps.length-1):idx)}
+document.addEventListener('keydown',e=>{if(!$('#modal').classList.contains('on')||e.target.tagName==='TEXTAREA')return;if(e.key==='ArrowRight')rpStep(1);if(e.key==='ArrowLeft')rpStep(-1);if(e.key==='ArrowDown'||e.key==='ArrowUp'){const i=RP_NAV.indexOf(CUR_HAND);const j=i+(e.key==='ArrowDown'?1:-1);if(j>=0&&j<RP_NAV.length){e.preventDefault();openHand(RP_NAV[j])}}});
+let CUR_HAND=null;
+async function toggleStarRow(el,hid){const on=el.classList.contains('on');const r=await fetch('/api/note',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hand_id:hid,star:on?0:1})}).then(r=>r.json());el.className='star '+(r.star?'on':'');if(curPage()==='marked')loadMarked()}
+function closeModal(){$('#modal').classList.remove('on');if(curPage()==='list')loadList();if(curPage()==='marked')loadMarked()}
+async function postNote(body){return fetch('/api/note',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hand_id:CUR_HAND,...body})}).then(r=>r.json())}
+async function toggleStar(){const on=$('#mstar').classList.contains('on');const r=await postNote({star:on?0:1});$('#mstar').className='star '+(r.star?'on':'')}
+async function saveNote(){await postNote({note:$('#mnote').value});$('#msaved').textContent='已儲存'}
+
+// ---------- strength / sessions / marked ----------
+async function loadStrength(){
+  const rows=await api('strength');
+  $('#strtable').innerHTML='<tr><th>翻牌牌力</th><th>手數</th><th>淨利</th><th>bb/100</th><th>IP 手數/淨利</th><th>OOP 手數/淨利</th><th>Bet%</th><th>Raise%</th><th>Call%</th><th>Fold%</th><th>WTSD</th><th>W$SD</th><th>WWSF</th></tr>'+
+    rows.map(r=>`<tr class="row" onclick="filterStrength('${r.strength}')"><td>${FS[r.strength]||r.strength}</td><td>${r.hands}</td><td>${money(r.net)}</td><td>${bbc(r.bb100)}</td><td>${r.ip.IP?r.ip.IP.hands+' / '+money(r.ip.IP.net):'–'}</td><td>${r.ip.OOP?r.ip.OOP.hands+' / '+money(r.ip.OOP.net):'–'}</td><td>${pc(r.bet)}</td><td>${pc(r.raise)}</td><td>${pc(r.call)}</td><td>${pc(r.fold)}</td><td>${pc(r.wtsd)}</td><td>${pc(r.wsd)}</td><td>${pc(r.wwsf)}</td></tr>`).join('');
+}
+function filterStrength(k){PRESET='';EXTRA={};$('#f_fs').value=k;showPage('list');applyFilters()}
+async function loadSessions(){
+  const rows=await api('sessions','&gap='+($('#gap').value||30));
+  $('#sesstable').innerHTML='<tr><th>開始</th><th>結束</th><th>時長</th><th>手數</th><th>手/小時</th><th>淨利</th><th>All-in EV</th><th>bb/100</th><th>VPIP</th><th>PFR</th></tr>'+
+    rows.map(r=>`<tr class="row" onclick="filterSession('${r.start}','${r.end}')"><td>${r.start.slice(0,16)}</td><td>${r.end.slice(11,16)}</td><td>${Math.floor(r.minutes/60)}h${r.minutes%60}m</td><td>${r.hands}</td><td>${r.hands_per_hour}</td><td>${money(r.net)}</td><td>${money(r.ev)}</td><td>${bbc(r.bb100)}</td><td>${pc(r.vpip)}</td><td>${pc(r.pfr)}</td></tr>`).join('');
+}
+function filterSession(a,b){PRESET='';$('#f_from').value=a.slice(0,10);$('#f_to').value=b.slice(0,10);showPage('list');applyFilters()}
+let MARKED_ROWS=[];
+async function loadMarked(){
+  const rows=await api('marked');MARKED_ROWS=rows;
+  $('#markedtable').innerHTML='<tr><th>★</th><th>時間</th><th>位置</th><th>底牌</th><th>公共牌</th><th>盈虧</th><th>情境</th><th style="text-align:left">筆記</th></tr>'+
+    (rows.length?rows.map(r=>`<tr class="row" onclick="openHand('${r.hand_id}')"><td><span class="star ${r.star?'on':''}" title="標記/取消" onclick="event.stopPropagation();toggleStarRow(this,'${r.hand_id}')">★</span></td><td>${r.played_at}</td><td>${r.position||''}</td><td>${badges(r.cards)}</td><td>${badges(r.board)}</td><td>${money(r.net)}</td><td class="muted">${r.pot_type||''}${r.pf_role==='raiser'?' R':r.pf_role==='caller'?' C':''}${r.ip===1?' IP':r.ip===0?' OOP':''}</td><td style="text-align:left;white-space:normal">${(r.note||'').replace(/</g,'&lt;')}</td></tr>`).join(''):'<tr><td colspan="8" class="muted">還沒有標記的手牌</td></tr>');
+}
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+
+// ---------- opponents ----------
+async function loadOpps(){
+  const rows=await api('opponents','&min_hands='+($('#minh').value||30)+'&q='+encodeURIComponent($('#oppq').value||''));
+  $('#oppstable').innerHTML='<tr><th>玩家 ID</th><th>遊戲名字／備註</th><th>手數</th><th>籌碼 bb</th><th>淨利</th><th>VPIP</th><th>PFR</th><th>3-Bet</th><th>F3B</th><th>偷盲</th><th>BB 棄</th><th>C-Bet</th><th>F C-Bet</th><th>WTSD</th><th>W$SD</th><th>AF</th><th>亮牌</th><th>最近出現</th></tr>'+
+    rows.map(r=>`<tr class="row" onclick="oppHands('${r.name}','vpip')"><td title="點一下複製 ID" style="cursor:copy" onclick="event.stopPropagation();copyText('${r.name}',this)"><b>${r.name}</b></td><td onclick="event.stopPropagation()"><input class="alias" value="${(r.alias||'').replace(/"/g,'&quot;')}" placeholder="名字" title="輸入 GG 顯示名稱或標籤，離開欄位自動儲存" onchange="savePlayer('${r.name}',{alias:this.value})"><input class="alias" style="width:150px" value="${(r.pnote||'').replace(/"/g,'&quot;')}" placeholder="備註" onchange="savePlayer('${r.name}',{note:this.value})"></td><td>${r.hands}</td><td>${r.stack_bb??'–'}</td><td>${money(r.net)}</td><td>${pc(r.vpip)}</td><td>${pc(r.pfr)}</td><td title="${r.tb_n}/${r.tb_opp}">${pc(r.threebet)}</td><td title="${r.f3b_n}/${r.f3b_opp}">${pc(r.fold_to_3bet)}</td><td title="${r.st_n}/${r.st_opp}">${pc(r.steal)}</td><td title="${r.bbf_n}/${r.bbf_opp}">${pc(r.bb_fold)}</td><td title="${r.cb_n}/${r.cb_opp}">${pc(r.cbet)}</td><td title="${r.fcb_n}/${r.fcb_opp}">${pc(r.fold_to_cbet)}</td><td>${pc(r.wtsd)}</td><td>${pc(r.wsd)}</td><td>${fmt(r.af)}</td><td><a href="#" style="color:var(--gold)" onclick="event.stopPropagation();oppHands('${r.name}','shown');return false">${r.shown}</a></td><td class="muted">${(r.last_seen||'').slice(5,16)}</td></tr>`).join('');
+}
+function copyText(t,el){const done=()=>{if(!el)return;const old=el.innerHTML;el.innerHTML='<span style="color:var(--pos)">已複製</span>';setTimeout(()=>el.innerHTML=old,900)};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done).catch(()=>{fallbackCopy(t);done()})}else{fallbackCopy(t);done()}}
+function fallbackCopy(t){const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy')}catch(e){}document.body.removeChild(ta)}
+async function savePlayer(name,body){await fetch('/api/player',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,...body})})}
+function oppHands(id,mode){PRESET='';EXTRA={};['f_pos','f_hand','f_pot','f_role','f_ip','f_players','f_first','f_fs','f_fl','f_tl','f_rl'].forEach(i=>$('#'+i).value='');$('#f_hand').dataset.v='';$('#f_opp').value=id;$('#f_oppmode').value=mode;showPage('list');applyFilters()}
+
+// ---------- import ----------
+async function loadMeta(){
+  const m=await fetch('/api/meta').then(r=>r.json());
+  $('#meta').textContent=m.hands?`資料庫 ${m.hands} 手 (${m.first.slice(0,10)} ~ ${m.last.slice(0,10)})`:'資料庫是空的，請先匯入';
+  if(!$('#folder').value)$('#folder').value=m.hands_dir;
+  return m;
+}
+function loadImportPage(){loadMeta()}
+async function doImport(){
+  $('#implog').textContent='匯入中，請稍候…';
+  const r=await fetch('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:$('#folder').value})}).then(r=>r.json());
+  if(r.error){$('#implog').textContent='錯誤：'+r.error;return}
+  $('#implog').textContent=`資料夾：${r.folder}\n處理檔案：${r.files}（略過未變動：${r.skipped}）\n掃描手數：${r.total_hands}\n新增手數：${r.new_hands}\n解析失敗：${r.errors}`;
+  loadMeta();
+}
+
+if(QUIZ){$('#quizbtn').textContent='河牌測驗模式：開';$('#quizbtn').style.borderColor='var(--gold)'}
+LAST_SNAP=snapFilters();kvSync().then(loadMeta).then(m=>{if(!m.hands)document.querySelector('nav button[data-p=import]').click();else loadOverview()});
+window.addEventListener('resize',()=>{if(curPage()==='overview')api('graph').then(drawGraph)});
+</script>
+</body>
+</html>
